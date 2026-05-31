@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-store">
+  <title>Sound Packs — Copper Room</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    button { -webkit-appearance: none; appearance: none; background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+
+    :root {
+      --bg: #0a0a0a;
+      --fg: #e8e4dc;
+      --muted: rgba(232,228,220,0.35);
+      --border: rgba(232,228,220,0.1);
+      --copper: #b47830;
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+    body { background: var(--bg); color: var(--fg); font-family: 'Inter', sans-serif; font-weight: 300; }
+    #scroller { position: fixed; inset: 0; overflow-y: scroll; scroll-behavior: smooth; }
+    canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+    .page { position: relative; z-index: 1; padding-bottom: 4rem; }
+
+    /* NAV */
+    nav { position: sticky; top: 0; z-index: 10; display: flex; justify-content: space-between; align-items: flex-start; padding: 2rem 2.5rem; pointer-events: none; }
+    .wordmark { font-size: 13px; font-weight: 400; letter-spacing: 0.01em; color: var(--fg); pointer-events: all; cursor: pointer; text-decoration: none; }
+    .nav-links { text-align: right; line-height: 1.6; pointer-events: all; }
+    .nav-links a { display: block; font-size: 22px; font-weight: 300; letter-spacing: 0.04em; color: var(--fg); text-decoration: none; cursor: pointer; transition: opacity 0.2s, color 0.2s; }
+    .nav-links a:hover { opacity: 0.4; }
+    .nav-links a.current { color: var(--copper); opacity: 1; }
+
+    /* hamburger */
+    .menu-toggle { display: none; pointer-events: all; cursor: pointer; flex-direction: column; gap: 5px; align-items: flex-end; }
+    .menu-toggle span { display: block; height: 0.5px; background: var(--fg); transition: all 0.2s; }
+    .menu-toggle span:nth-child(1) { width: 24px; }
+    .menu-toggle span:nth-child(2) { width: 16px; }
+    .menu-toggle span:nth-child(3) { width: 20px; }
+
+    /* PAGE HEADER */
+    .page-header { padding: 5rem 2.5rem 3rem; background: transparent; border-top: 0.5px solid var(--border); }
+    .page-header h1 { font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 300; line-height: 1.1; letter-spacing: -0.01em; margin-bottom: 1rem; }
+    .page-header p { font-size: 13px; color: rgba(232,228,220,0.45); max-width: 420px; line-height: 1.9; }
+
+    /* PACK */
+    .pack {
+      padding: 5rem 2.5rem;
+      border-top: 0.5px solid var(--border);
+    }
+    .pack.solid { background: var(--bg); }
+    .pack.transparent { background: transparent; }
+
+    .pack-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+
+    .pack-left { padding-right: 4rem; border-right: 0.5px solid var(--border); }
+    .pack-right { padding-left: 4rem; display: flex; flex-direction: column; justify-content: space-between; }
+
+    .pack-num { font-size: 10px; letter-spacing: 0.2em; color: var(--copper); margin-bottom: 1.5rem; font-weight: 400; }
+    .pack-title { font-size: clamp(1.8rem, 3vw, 2.6rem); font-weight: 300; color: var(--fg); line-height: 1.1; margin-bottom: 0.6rem; }
+    .pack-gear { font-size: 12px; color: var(--muted); margin-bottom: 2rem; line-height: 1.6; }
+    .pack-desc { font-size: 13px; color: rgba(232,228,220,0.5); line-height: 1.9; margin-bottom: 2.5rem; }
+
+    /* TRACK LIST */
+    .track-list { margin-bottom: 2.5rem; }
+    .track-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 0.7rem 0;
+      border-bottom: 0.5px solid var(--border);
+      gap: 1rem;
+    }
+    .track-item:first-child { border-top: 0.5px solid var(--border); }
+    .track-name { font-size: 12px; color: rgba(232,228,220,0.6); }
+    .track-duration { font-size: 10px; color: rgba(232,228,220,0.25); letter-spacing: 0.1em; }
+
+    /* AUDIO PLAYER */
+    .player {
+      margin-bottom: 2.5rem;
+    }
+    .player-label { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.8rem; }
+    .player-controls {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.8rem 1rem;
+      border: 0.5px solid var(--border);
+    }
+    .play-btn {
+      width: 28px;
+      height: 28px;
+      border: 0.5px solid rgba(232,228,220,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: border-color 0.2s;
+    }
+    .play-btn:hover { border-color: var(--copper); }
+    .play-btn svg { width: 10px; height: 10px; fill: var(--fg); margin-left: 2px; }
+    .play-btn.playing svg { margin-left: 0; }
+    .progress-bar {
+      flex: 1;
+      height: 0.5px;
+      background: rgba(232,228,220,0.1);
+      position: relative;
+      cursor: pointer;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--copper);
+      width: 0%;
+      transition: width 0.1s linear;
+      pointer-events: none;
+    }
+    .time-label { font-size: 9px; letter-spacing: 0.1em; color: rgba(232,228,220,0.25); flex-shrink: 0; }
+
+    /* CTA */
+    .pack-cta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .pack-price { font-size: 22px; font-weight: 300; color: var(--fg); }
+    .pack-price span { font-size: 11px; color: var(--muted); margin-left: 0.4rem; letter-spacing: 0.1em; }
+    .buy-btn {
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--bg);
+      background: var(--copper);
+      padding: 0.85rem 2rem;
+      text-decoration: none;
+      transition: opacity 0.2s;
+      display: inline-block;
+    }
+    .buy-btn:hover { opacity: 0.8; }
+    .buy-btn.coming-soon {
+      background: transparent;
+      color: var(--muted);
+      border: 0.5px solid var(--border);
+      cursor: default;
+    }
+    .buy-btn.coming-soon:hover { opacity: 1; }
+
+    /* FIXED FOOTER BAR */
+    .fixed-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 2.5rem; background: var(--bg); border-top: 0.5px solid var(--border); pointer-events: none; }
+    .fixed-bar .tagline { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+    .fixed-bar .bar-socials { display: flex; gap: 1.2rem; pointer-events: all; }
+    .fixed-bar .bar-socials a { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); text-decoration: none; cursor: pointer; transition: color 0.2s; }
+    .fixed-bar .bar-socials a:hover { color: var(--fg); }
+
+    /* NAV OVERLAY */
+    .nav-overlay { display: none !important; }
+
+    /* MOBILE */
+    @media (max-width: 768px) {
+      nav { padding: 1.5rem; align-items: center; }
+      .nav-links { display: none; }
+      .menu-toggle { display: flex; }
+      .nav-overlay {
+        display: none !important;
+        position: fixed;
+        inset: 0;
+        background: var(--bg);
+        z-index: 100;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-end;
+        padding: 3rem 2rem;
+        text-align: right;
+      }
+      .nav-overlay.open { display: flex !important; }
+      .nav-overlay a { display: block; font-size: 26px; font-weight: 300; font-family: 'Inter', sans-serif; padding: 0.35rem 0; letter-spacing: 0.02em; color: var(--fg); text-decoration: none; }
+      .nav-overlay a:hover { opacity: 0.4; }
+      .nav-overlay .nav-close { position: absolute; top: 1.8rem; right: 1.8rem; font-size: 8px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 300; }
+      .page-header { padding: 3rem 1.5rem 2rem; }
+      .pack { padding: 3rem 1.5rem; }
+      .pack-inner { grid-template-columns: 1fr; }
+      .pack-left { padding-right: 0; border-right: none; border-bottom: 0.5px solid var(--border); padding-bottom: 2.5rem; margin-bottom: 2.5rem; }
+      .pack-right { padding-left: 0; }
+      .fixed-bar { padding: 1rem 1.5rem; }
+      .fixed-bar .tagline { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div id="scroller">
+  <div class="page">
+
+    <nav>
+      <a class="wordmark" href="index.html">Copper Room</a>
+      <div class="nav-links">
+        <a href="index.html#about">About</a>
+        <a href="copper-room-packs.html" class="current">Sound Packs</a>
+        <a href="index.html#services">Services</a>
+        <a href="copper-room-portfolio.html">Portfolio</a>
+        <a href="index.html#process">Process</a>
+        <a href="copper-room-studio.html">Studio</a>
+        <a href="index.html#newsletter">Newsletter</a>
+        <a href="index.html#contact">Contact</a>
+      </div>
+      <button class="menu-toggle" id="menuToggle" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </nav>
+
+    <div class="nav-overlay" id="navOverlay">
+      <span class="nav-close" id="navClose">Close</span>
+      <a href="index.html#about">About</a>
+      <a href="copper-room-packs.html" class="current">Sound Packs</a>
+      <a href="index.html#services">Services</a>
+      <a href="copper-room-portfolio.html">Portfolio</a>
+      <a href="index.html#process">Process</a>
+      <a href="copper-room-studio.html">Studio</a>
+      <a href="index.html#newsletter">Newsletter</a>
+      <a href="index.html#contact">Contact</a>
+    </div>
+
+    <div class="page-header">
+      <h1>Sound Packs</h1>
+      <p>Analogue textures recorded through hardware signal chains. One-shots, loops, and textures for producers who work with tone.</p>
+    </div>
+
+    <!-- PACK 001 -->
+    <div class="pack solid">
+      <div class="pack-inner">
+        <div class="pack-left">
+          <p class="pack-num">001</p>
+          <p class="pack-title">Space Western</p>
+          <p class="pack-gear">Moog Subsequent 37 · Alesis Quadraverb · Roland RE-201</p>
+          <p class="pack-desc">Deep analogue synthesis filtered through vintage spring reverb and tape echo. Space Western draws on the desolate, dusty textures of early electronic music — long decays, warm oscillator drift, and the particular grain of tape saturation. 24 one-shots and 12 textural loops, recorded at 24bit/48kHz.</p>
+          <div class="track-list">
+            <div class="track-item"><span class="track-name">Drift One-shot A</span><span class="track-duration">0:04</span></div>
+            <div class="track-item"><span class="track-name">Drift One-shot B</span><span class="track-duration">0:06</span></div>
+            <div class="track-item"><span class="track-name">Echo Loop 01</span><span class="track-duration">0:16</span></div>
+            <div class="track-item"><span class="track-name">Tape Texture 01</span><span class="track-duration">0:32</span></div>
+            <div class="track-item"><span class="track-name">Sub Tone A</span><span class="track-duration">0:04</span></div>
+            <div class="track-item"><span class="track-name">Reverb Wash 01</span><span class="track-duration">1:02</span></div>
+          </div>
+        </div>
+        <div class="pack-right">
+          <div class="player" id="player-001">
+            <p class="player-label">Preview</p>
+            <div class="player-controls">
+              <div class="play-btn" onclick="togglePlay('001')">
+                <svg id="icon-001" viewBox="0 0 10 10"><polygon points="2,1 9,5 2,9"/></svg>
+              </div>
+              <div class="progress-bar" onclick="seek(event, '001')">
+                <div class="progress-fill" id="progress-001"></div>
+              </div>
+              <span class="time-label" id="time-001">0:00</span>
+            </div>
+          </div>
+          <div class="pack-cta">
+            <p class="pack-price">€12 <span>EUR</span></p>
+            <a class="buy-btn" href="https://gumroad.com" target="_blank">Buy on Gumroad</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PACK 002 -->
+    <div class="pack transparent">
+      <div class="pack-inner">
+        <div class="pack-left">
+          <p class="pack-num">002</p>
+          <p class="pack-title">Warm Static</p>
+          <p class="pack-gear">Moog Subsequent 37 · Roland Juno-106 · Outboard compression</p>
+          <p class="pack-desc">Slow-moving pad textures and analogue noise recordings. Warm Static explores the space between signal and silence — breath, hum, and the harmonic residue of analogue circuitry pushed to its edges. Ideal for ambient production, sound design, and textural layering.</p>
+          <div class="track-list">
+            <div class="track-item"><span class="track-name">Pad Texture A</span><span class="track-duration">1:12</span></div>
+            <div class="track-item"><span class="track-name">Noise Layer 01</span><span class="track-duration">0:48</span></div>
+            <div class="track-item"><span class="track-name">Juno Wash A</span><span class="track-duration">0:32</span></div>
+            <div class="track-item"><span class="track-name">Hum Texture 01</span><span class="track-duration">1:04</span></div>
+          </div>
+        </div>
+        <div class="pack-right">
+          <div class="player" id="player-002">
+            <p class="player-label">Preview</p>
+            <div class="player-controls">
+              <div class="play-btn" onclick="togglePlay('002')">
+                <svg id="icon-002" viewBox="0 0 10 10"><polygon points="2,1 9,5 2,9"/></svg>
+              </div>
+              <div class="progress-bar" onclick="seek(event, '002')">
+                <div class="progress-fill" id="progress-002"></div>
+              </div>
+              <span class="time-label" id="time-002">0:00</span>
+            </div>
+          </div>
+          <div class="pack-cta">
+            <p class="pack-price">€12 <span>EUR</span></p>
+            <a class="buy-btn coming-soon">Coming soon</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PACK 003 -->
+    <div class="pack solid">
+      <div class="pack-inner">
+        <div class="pack-left">
+          <p class="pack-num">003</p>
+          <p class="pack-title">Tape Room</p>
+          <p class="pack-gear">Roland RE-201 · Drum machines · Room microphones</p>
+          <p class="pack-desc">Lo-fi percussion and degraded pads run through the Roland RE-201 Space Echo. Tape Room captures the physicality of recording in a room — bleed, saturation, and the timing imperfections that make electronic music feel alive.</p>
+          <div class="track-list">
+            <div class="track-item"><span class="track-name">Room Kick A</span><span class="track-duration">0:02</span></div>
+            <div class="track-item"><span class="track-name">Tape Snare A</span><span class="track-duration">0:02</span></div>
+            <div class="track-item"><span class="track-name">Echo Perc Loop 01</span><span class="track-duration">0:16</span></div>
+            <div class="track-item"><span class="track-name">Degraded Pad A</span><span class="track-duration">0:48</span></div>
+          </div>
+        </div>
+        <div class="pack-right">
+          <div class="player" id="player-003">
+            <p class="player-label">Preview</p>
+            <div class="player-controls">
+              <div class="play-btn" onclick="togglePlay('003')">
+                <svg id="icon-003" viewBox="0 0 10 10"><polygon points="2,1 9,5 2,9"/></svg>
+              </div>
+              <div class="progress-bar" onclick="seek(event, '003')">
+                <div class="progress-fill" id="progress-003"></div>
+              </div>
+              <span class="time-label" id="time-003">0:00</span>
+            </div>
+          </div>
+          <div class="pack-cta">
+            <p class="pack-price">€12 <span>EUR</span></p>
+            <a class="buy-btn coming-soon">Coming soon</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="nav-overlay" id="navOverlay" style="display:none!important"></div>
+
+<div class="fixed-bar">
+  <span class="tagline">Porto — Analogue sound design</span>
+  <div class="bar-socials">
+    <a href="#">Instagram</a>
+    <a href="#">YouTube</a>
+  </div>
+</div>
+
+<script>
+  // ── AUDIO PLAYER ──
+  const players = {};
+
+  function togglePlay(id) {
+    // Stop any other playing
+    Object.keys(players).forEach(k => {
+      if (k !== id && players[k] && !players[k].paused) {
+        players[k].pause();
+        document.getElementById('icon-' + k).innerHTML = '<polygon points="2,1 9,5 2,9"/>';
+        document.getElementById('progress-' + k).style.width = '0%';
+        document.getElementById('time-' + k).textContent = '0:00';
+      }
+    });
+
+    if (!players[id]) {
+      // No real audio file yet — simulate playback for demo
+      simulatePlay(id);
+      return;
+    }
+
+    const audio = players[id];
+    if (audio.paused) {
+      audio.play();
+      document.getElementById('icon-' + id).innerHTML = '<rect x="2" y="1" width="2.5" height="8"/><rect x="5.5" y="1" width="2.5" height="8"/>';
+    } else {
+      audio.pause();
+      document.getElementById('icon-' + id).innerHTML = '<polygon points="2,1 9,5 2,9"/>';
+    }
+  }
+
+  // Demo simulation (replace with real audio src when ready)
+  const simTimers = {};
+  function simulatePlay(id) {
+    if (simTimers[id]) {
+      clearInterval(simTimers[id]);
+      delete simTimers[id];
+      document.getElementById('icon-' + id).innerHTML = '<polygon points="2,1 9,5 2,9"/>';
+      document.getElementById('progress-' + id).style.width = '0%';
+      document.getElementById('time-' + id).textContent = '0:00';
+      return;
+    }
+    document.getElementById('icon-' + id).innerHTML = '<rect x="2" y="1" width="2.5" height="8"/><rect x="5.5" y="1" width="2.5" height="8"/>';
+    let elapsed = 0;
+    const duration = 30;
+    simTimers[id] = setInterval(() => {
+      elapsed += 0.1;
+      const pct = (elapsed / duration) * 100;
+      document.getElementById('progress-' + id).style.width = pct + '%';
+      const s = Math.floor(elapsed);
+      document.getElementById('time-' + id).textContent = '0:' + String(s).padStart(2, '0');
+      if (elapsed >= duration) {
+        clearInterval(simTimers[id]);
+        delete simTimers[id];
+        document.getElementById('icon-' + id).innerHTML = '<polygon points="2,1 9,5 2,9"/>';
+        document.getElementById('progress-' + id).style.width = '0%';
+        document.getElementById('time-' + id).textContent = '0:00';
+      }
+    }, 100);
+  }
+
+  function seek(e, id) {
+    const bar = e.currentTarget;
+    const pct = e.offsetX / bar.offsetWidth;
+    document.getElementById('progress-' + id).style.width = (pct * 100) + '%';
+  }
+
+  // ── NAV ──
+  const menuToggle = document.getElementById('menuToggle');
+  const navOverlay = document.getElementById('navOverlay');
+
+  function closeMenu() {
+    menuToggle.classList.remove('open');
+    navOverlay.classList.remove('open');
+  }
+
+  menuToggle.addEventListener('click', () => {
+    menuToggle.classList.toggle('open');
+    navOverlay.classList.toggle('open');
+  });
+  menuToggle.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    menuToggle.classList.toggle('open');
+    navOverlay.classList.toggle('open');
+  });
+
+  document.getElementById('navClose').addEventListener('click', closeMenu);
+  document.getElementById('navClose').addEventListener('touchend', (e) => { e.preventDefault(); closeMenu(); });
+
+  window.addEventListener('unload', () => {});
+  window.addEventListener('pageshow', () => {
+    navOverlay.classList.remove('open');
+    menuToggle.classList.remove('open');
+  });
+
+  // ── CANVAS ──
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const a = 3, b = 2;
+  let elapsed = 0, last = null;
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  function draw(ts) {
+    if (last === null) last = ts;
+    elapsed += ts - last; last = ts;
+    const W = canvas.width, H = canvas.height;
+    const cx = W * 0.5, cy = H * 0.5;
+    const R = Math.min(W, H) * 0.42;
+    const steps = 600;
+    const d = Math.sin(elapsed * 0.00016) * Math.PI;
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, W, H);
+    ctx.beginPath();
+    for (let s = 0; s <= steps; s++) {
+      const angle = (s / steps) * Math.PI * 2;
+      const x = cx + R * Math.sin(a * angle + d + 0.3);
+      const y = cy + R * Math.sin(b * angle);
+      s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(232,228,220,0.05)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.beginPath();
+    for (let s = 0; s <= steps; s++) {
+      const angle = (s / steps) * Math.PI * 2;
+      const x = cx + R * Math.sin(a * angle + d);
+      const y = cy + R * Math.sin(b * angle);
+      s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(180,120,60,0.35)'; ctx.lineWidth = 1; ctx.stroke();
+    requestAnimationFrame(draw);
+  }
+  resize(); window.addEventListener('resize', resize); requestAnimationFrame(draw);
+</script>
+
+</body>
+</html>
