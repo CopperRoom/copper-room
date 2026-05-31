@@ -62,7 +62,10 @@
     .track-meta { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(232,228,220,0.2); text-align: right; }
     .track-tag { display: inline-block; font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; padding: 3px 8px; border: 0.5px solid rgba(180,120,60,0.3); color: var(--copper); margin-left: 0.8rem; }
 
-    /* CLIENT WORK */
+    /* TRACK COVER */
+    .track { grid-template-columns: 3rem 48px 1fr auto; }
+    .track-cover { width: 48px; height: 48px; object-fit: cover; display: block; filter: brightness(0.85); }
+    .track-cover-empty { width: 48px; height: 48px; background: transparent; }
     .client-grid { display: grid; grid-template-columns: repeat(2, 1fr); border-top: 0.5px solid var(--border); }
     .client {
       padding: 2.5rem 2rem 2.5rem 0;
@@ -116,6 +119,7 @@
 
         <div class="track">
           <span class="track-num">01</span>
+          <img class="track-cover" src="lockdown.jpg" alt="Lockdown Tapes">
           <div class="track-info">
             <h3>Lockdown Tapes <span class="track-tag">EP</span></h3>
             <p>Original compositions — synthesis, arrangement, production</p>
@@ -125,6 +129,7 @@
 
         <div class="track">
           <span class="track-num">02</span>
+          <img class="track-cover" src="hanami.jpg" alt="Hanami">
           <div class="track-info">
             <h3>Hanami <span class="track-tag">EP</span></h3>
             <p>Original compositions — synthesis, arrangement, production</p>
@@ -134,6 +139,7 @@
 
         <div class="track">
           <span class="track-num">03</span>
+          <div class="track-cover-empty"></div>
           <div class="track-info">
             <h3>The Saloon Is Past Saturn</h3>
             <p>Moog Subsequent 37 — live improvisation</p>
@@ -143,6 +149,7 @@
 
         <div class="track">
           <span class="track-num">04</span>
+          <div class="track-cover-empty"></div>
           <div class="track-info">
             <h3>TenTen <span class="track-tag">In progress</span></h3>
             <p>With Pedro Petiz — production, arrangement</p>
@@ -191,8 +198,8 @@
 <div class="fixed-bar">
   <span class="tagline">Porto — Analogue sound design</span>
   <div class="bar-socials">
-    <a href="https://instagram.com/bonifaciothecreator" target="_blank">Instagram</a>
-    <a href="https://youtube.com/@bonifaciothecreator" target="_blank">YouTube</a>
+    <a href="#">Instagram</a>
+    <a href="#">YouTube</a>
   </div>
 </div>
 

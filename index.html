@@ -43,12 +43,6 @@
       cursor: pointer;
     }
     .nav-links { text-align: right; line-height: 1.6; pointer-events: all; }
-    .nav-links a:hover { opacity: 0.4; }
-    .nav-links a.active { color: var(--copper); opacity: 1; }
-
-
-    /* desktop nav links */
-    .nav-links { text-align: right; line-height: 1.6; pointer-events: all; }
     .nav-links a {
       display: block;
       font-size: 22px;
@@ -184,7 +178,6 @@
     .fixed-bar .bar-socials a { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); text-decoration: none; cursor: pointer; transition: color 0.2s; }
     .fixed-bar .bar-socials a:hover { color: var(--fg); }
 
-
     /* NAV OVERLAY — desktop: never shown */
     .nav-overlay { display: none !important; }
 
@@ -213,8 +206,12 @@
         font-family: 'Inter', sans-serif;
         padding: 0.35rem 0;
         letter-spacing: 0.02em;
+        color: var(--fg);
+        text-decoration: none;
+        display: block;
         pointer-events: all;
       }
+      .nav-overlay a:hover { opacity: 0.4; }
       .nav-close {
         position: absolute;
         top: 1.8rem;
@@ -228,40 +225,25 @@
         font-family: 'Inter', sans-serif;
         font-weight: 300;
       }
-
       .hero { padding: 1.5rem; margin-top: -5rem; min-height: 500px; }
-
       .section { padding: 3rem 1.5rem; }
-
       .intro h2 { font-size: clamp(1.8rem, 7vw, 2.4rem); }
       .intro p { font-size: 13px; max-width: 100%; }
-
-      /* stack all grids */
-      .releases-grid,
-      .services-grid { grid-template-columns: 1fr; }
-      .release, .service {
-        padding: 2rem 0;
-        border-right: none;
-        border-bottom: 0.5px solid var(--border);
-      }
+      .releases-grid, .services-grid { grid-template-columns: 1fr; }
+      .release, .service { padding: 2rem 0; border-right: none; border-bottom: 0.5px solid var(--border); }
       .release:last-child, .service:last-child { border-bottom: none; }
       .release:not(:first-child), .service:not(:first-child) { padding-left: 0; }
-
       .process-grid { grid-template-columns: 1fr; }
       .process-col { padding: 2rem 0; }
       .process-col:first-child { padding-right: 0; border-right: none; border-bottom: 0.5px solid var(--border); }
       .process-col:last-child { padding-left: 0; }
-
       .about-grid { grid-template-columns: 1fr; }
       .about-left { padding: 2rem 0; border-right: none; border-bottom: 0.5px solid var(--border); }
       .about-right { padding: 2rem 0; }
       .about-left h2 { font-size: clamp(1.4rem, 5vw, 1.8rem); }
-
       .newsletter { flex-direction: column; align-items: flex-start; }
       .email-row { min-width: 0; width: 100%; }
-
       .contact-inner { flex-direction: column; align-items: flex-start; }
-
       .fixed-bar { padding: 1rem 1.5rem; }
       .fixed-bar .tagline { display: none; }
     }
@@ -276,7 +258,6 @@
 
     <nav>
       <span class="wordmark" id="nav-home">Copper Room</span>
-      <!-- desktop nav links -->
       <div class="nav-links">
         <a data-target="about">About</a>
         <a href="copper-room-packs.html">Sound Packs</a>
@@ -287,13 +268,10 @@
         <a data-target="newsletter">Newsletter</a>
         <a data-target="contact">Contact</a>
       </div>
-      <!-- mobile hamburger -->
       <button class="menu-toggle" id="menuToggle" aria-label="Menu">
         <span></span><span></span><span></span>
       </button>
     </nav>
-
-
 
     <div class="hero" id="hero"></div>
 
@@ -412,7 +390,6 @@
   </div>
 </div>
 
-
 <div class="nav-overlay" id="navOverlay">
   <span class="nav-close" id="navClose">Close</span>
   <a data-target="about">About</a>
@@ -438,7 +415,6 @@
   const menuToggle = document.getElementById('menuToggle');
   const navOverlay = document.getElementById('navOverlay');
 
-  // Always start closed — prevents browser back/forward cache restoring open state
   navOverlay.classList.remove('open');
   menuToggle.classList.remove('open');
 
@@ -447,10 +423,7 @@
     navOverlay.classList.remove('open');
   }
 
-  // Disable bfcache so browser always does a fresh load on back/forward
   window.addEventListener('unload', () => {});
-
-  // Belt and braces — also reset on pageshow
   window.addEventListener('pageshow', (e) => {
     navOverlay.classList.remove('open');
     menuToggle.classList.remove('open');
@@ -499,7 +472,6 @@
     links.forEach(a => a.classList.toggle('active', a.dataset.target === current));
   });
 
-  // Canvas
   const canvas = document.getElementById('c');
   const ctx = canvas.getContext('2d');
   const a = 3, b = 2;
