@@ -574,15 +574,16 @@
   }
   resize(); window.addEventListener('resize', resize); requestAnimationFrame(draw);
 
-  // Show custom success message when Kit confirms submission
-  const kitObserver = new MutationObserver(() => {
-    const kitSuccess = document.querySelector('[data-element="success"]');
-    if (kitSuccess && kitSuccess.offsetParent !== null) {
-      document.getElementById('kit-wrapper').style.display = 'none';
-      document.getElementById('newsletter-success').style.display = 'block';
-    }
-  });
-  kitObserver.observe(document.body, { childList: true, subtree: true, attributes: true });
+  // Show success message after Kit submission
+  const kitSubmitBtn = document.querySelector('.cr-kit-btn');
+  if (kitSubmitBtn) {
+    kitSubmitBtn.addEventListener('click', () => {
+      setTimeout(() => {
+        document.getElementById('kit-wrapper').style.display = 'none';
+        document.getElementById('newsletter-success').style.display = 'block';
+      }, 2000);
+    });
+  }
 
   // Contact form
   const form = document.querySelector('form[name="contact"]');
