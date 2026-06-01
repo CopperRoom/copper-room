@@ -338,11 +338,17 @@
     <div class="section transparent newsletter" id="newsletter">
       <div>
         <h3>Join the list</h3>
-        <p>Free sample file with every issue.<br>No frequency, no filler.</p>
+        <p>A free sample file with every issue. Recordings from the studio, notes on the process, and occasional thoughts on analogue sound. No schedule, no filler — just signal.</p>
       </div>
-      <div class="email-row">
-        <input type="email" placeholder="your@email.com">
-        <button>Subscribe</button>
+      <form class="kit-form" action="https://app.kit.com/forms/9510987/subscriptions" method="post" id="kit-form">
+        <div class="email-row">
+          <input type="email" name="email_address" placeholder="your@email.com" required>
+          <button type="submit">Subscribe</button>
+        </div>
+        <input type="hidden" name="utf8" value="&#x2713;">
+      </form>
+      <div class="newsletter-success" id="newsletter-success" style="display:none;">
+        <p style="font-size:13px;color:rgba(232,228,220,0.5);line-height:1.9;">You're in — check your inbox to confirm your subscription.</p>
       </div>
     </div>
 
@@ -516,6 +522,23 @@
     requestAnimationFrame(draw);
   }
   resize(); window.addEventListener('resize', resize); requestAnimationFrame(draw);
+
+  // Kit newsletter form
+  const kitForm = document.getElementById('kit-form');
+  if (kitForm) {
+    kitForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = new FormData(kitForm);
+      try {
+        await fetch(kitForm.action, { method: 'POST', body: new URLSearchParams(data), mode: 'no-cors' });
+        kitForm.style.display = 'none';
+        document.getElementById('newsletter-success').style.display = 'block';
+      } catch (err) {
+        kitForm.style.display = 'none';
+        document.getElementById('newsletter-success').style.display = 'block';
+      }
+    });
+  }
 
   // Contact form
   const form = document.querySelector('form[name="contact"]');
