@@ -571,6 +571,15 @@
   }
   resize(); window.addEventListener('resize', resize); requestAnimationFrame(draw);
 
+  // Hide Kit Creator Network modal
+  const observer = new MutationObserver(() => {
+    const modal = document.querySelector('.formkit-modal');
+    const overlay = document.querySelector('.formkit-overlay');
+    if (modal) modal.style.display = 'none';
+    if (overlay) overlay.style.display = 'none';
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+
   // Contact form
   const form = document.querySelector('form[name="contact"]');
   if (form) {
