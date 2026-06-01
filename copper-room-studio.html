@@ -31,60 +31,31 @@
     .nav-links a:hover { opacity: 0.4; }
     .nav-links a.current { color: var(--copper); opacity: 1; }
 
+    /* hamburger */
+    .menu-toggle { display: none; pointer-events: all; cursor: pointer; flex-direction: column; gap: 5px; align-items: flex-end; }
+    .menu-toggle span { display: block; height: 0.5px; background: var(--fg); transition: all 0.2s; }
+    .menu-toggle span:nth-child(1) { width: 24px; }
+    .menu-toggle span:nth-child(2) { width: 16px; }
+    .menu-toggle span:nth-child(3) { width: 20px; }
+
+    /* NAV OVERLAY — desktop: never shown */
+    .nav-overlay { display: none !important; }
+
     /* PAGE HEADER */
     .page-header { padding: 5rem 2.5rem 0; background: transparent; border-top: 0.5px solid var(--border); }
     .page-header h1 { font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 300; line-height: 1.1; letter-spacing: -0.01em; margin-bottom: 1.5rem; }
     .page-header p { font-size: 13px; line-height: 1.9; color: rgba(232,228,220,0.45); max-width: 400px; padding-bottom: 3rem; }
 
     /* PHOTO GRID */
-    .photo-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 0;
-    }
-    .photo-item {
-      position: relative;
-      aspect-ratio: 4/3;
-      overflow: hidden;
-      border: 0.5px solid var(--border);
-      background: #111;
-      cursor: pointer;
-    }
+    .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }
+    .photo-item { position: relative; aspect-ratio: 4/3; overflow: hidden; border: 0.5px solid var(--border); background: #111; cursor: pointer; }
     .photo-item:hover .photo-overlay { opacity: 1; }
-    .photo-placeholder {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, #161210 0%, #0d0d0d 50%, #1a1410 100%);
-    }
-    .photo-placeholder span {
-      font-size: 9px;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: rgba(232,228,220,0.12);
-    }
-    /* Large feature items */
+    .photo-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #161210 0%, #0d0d0d 50%, #1a1410 100%); }
+    .photo-placeholder span { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(232,228,220,0.12); }
     .photo-item.wide { grid-column: span 2; aspect-ratio: 16/7; }
     .photo-item.tall { grid-row: span 2; aspect-ratio: auto; }
-
-    .photo-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(10,10,10,0.5);
-      display: flex;
-      align-items: flex-end;
-      padding: 1.5rem;
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-    .photo-caption {
-      font-size: 10px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: rgba(232,228,220,0.7);
-    }
+    .photo-overlay { position: absolute; inset: 0; background: rgba(10,10,10,0.5); display: flex; align-items: flex-end; padding: 1.5rem; opacity: 0; transition: opacity 0.3s; }
+    .photo-caption { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(232,228,220,0.7); }
 
     /* GEAR LIST */
     .gear-section { padding: 5rem 2.5rem; border-top: 0.5px solid var(--border); background: var(--bg); }
@@ -104,6 +75,40 @@
     .fixed-bar .bar-socials { display: flex; gap: 1.2rem; pointer-events: all; }
     .fixed-bar .bar-socials a { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); text-decoration: none; cursor: pointer; transition: color 0.2s; }
     .fixed-bar .bar-socials a:hover { color: var(--fg); }
+
+    /* MOBILE */
+    @media (max-width: 768px) {
+      nav { padding: 1.5rem; align-items: center; }
+      .nav-links { display: none; }
+      .menu-toggle { display: flex; }
+      .nav-overlay {
+        display: none !important;
+        position: fixed;
+        inset: 0;
+        background: var(--bg);
+        z-index: 100;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-end;
+        padding: 3rem 2rem;
+        text-align: right;
+        pointer-events: all;
+      }
+      .nav-overlay.open { display: flex !important; }
+      .nav-overlay a { display: block; font-size: 26px; font-weight: 300; font-family: 'Inter', sans-serif; padding: 0.35rem 0; letter-spacing: 0.02em; color: var(--fg); text-decoration: none; pointer-events: all; }
+      .nav-overlay a:hover { opacity: 0.4; }
+      .nav-close { position: absolute; top: 1.8rem; right: 1.8rem; font-size: 8px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); cursor: pointer; pointer-events: all; font-family: 'Inter', sans-serif; font-weight: 300; }
+      .page-header { padding: 3rem 1.5rem 0; }
+      .photo-grid { grid-template-columns: 1fr 1fr; }
+      .photo-item.wide { grid-column: span 2; aspect-ratio: 16/9; }
+      .photo-item.tall { grid-row: span 1; }
+      .gear-section { padding: 3rem 1.5rem; }
+      .gear-grid { grid-template-columns: 1fr; }
+      .gear-col { border-right: none !important; padding-left: 0 !important; padding-right: 0 !important; border-bottom: 0.5px solid var(--border); padding-bottom: 2rem; }
+      .gear-col:last-child { border-bottom: none; }
+      .fixed-bar { padding: 1rem 1.5rem; }
+      .fixed-bar .tagline { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -115,8 +120,7 @@
 
     <nav>
       <a class="wordmark" href="index.html">Copper Room</a>
-      <button class="menu-toggle" id="menuToggle" style="display:none;pointer-events:all;cursor:pointer;background:none;border:none;padding:0;flex-direction:column;gap:5px;align-items:flex-end;" aria-label="Menu"><span style="display:block;height:0.5px;width:24px;background:#e8e4dc;"></span><span style="display:block;height:0.5px;width:16px;background:#e8e4dc;"></span><span style="display:block;height:0.5px;width:20px;background:#e8e4dc;"></span></button>
-      <div class="nav-links" id="navLinks">
+      <div class="nav-links">
         <a href="index.html#about">About</a>
         <a href="copper-room-packs.html">Sound Packs</a>
         <a href="index.html#services">Services</a>
@@ -126,6 +130,9 @@
         <a href="index.html#newsletter">Newsletter</a>
         <a href="index.html#contact">Contact</a>
       </div>
+      <button class="menu-toggle" id="menuToggle" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
     </nav>
 
     <div class="page-header">
@@ -135,47 +142,38 @@
 
     <!-- PHOTO GRID -->
     <div class="photo-grid">
-
       <div class="photo-item wide">
         <div class="photo-placeholder"><span>Studio overview</span></div>
         <div class="photo-overlay"><span class="photo-caption">The room</span></div>
       </div>
-
       <div class="photo-item">
         <div class="photo-placeholder"><span>Synth rack</span></div>
         <div class="photo-overlay"><span class="photo-caption">Synthesizers</span></div>
       </div>
-
       <div class="photo-item">
         <div class="photo-placeholder"><span>Moog Subsequent 37</span></div>
         <div class="photo-overlay"><span class="photo-caption">Moog Subsequent 37</span></div>
       </div>
-
       <div class="photo-item">
         <div class="photo-placeholder"><span>Roland RE-201</span></div>
         <div class="photo-overlay"><span class="photo-caption">Roland RE-201 Space Echo</span></div>
       </div>
-
       <div class="photo-item">
         <div class="photo-placeholder"><span>Juno-106</span></div>
         <div class="photo-overlay"><span class="photo-caption">Roland Juno-106</span></div>
       </div>
-
       <div class="photo-item">
         <div class="photo-placeholder"><span>Outboard</span></div>
         <div class="photo-overlay"><span class="photo-caption">Outboard gear</span></div>
       </div>
-
       <div class="photo-item wide">
         <div class="photo-placeholder"><span>Mixing desk</span></div>
         <div class="photo-overlay"><span class="photo-caption">Signal chain</span></div>
       </div>
-
       <div class="photo-item">
         <div class="photo-placeholder"><span>Patchbay</span></div>
         <div class="photo-overlay"><span class="photo-caption">Patchbay</span></div>
       </div>
-
     </div>
 
     <!-- GEAR LIST -->
@@ -210,8 +208,20 @@
   </div>
 </div>
 
+<div class="nav-overlay" id="navOverlay">
+  <span class="nav-close" id="navClose">Close</span>
+  <a href="index.html#about">About</a>
+  <a href="copper-room-packs.html">Sound Packs</a>
+  <a href="index.html#services">Services</a>
+  <a href="copper-room-portfolio.html">Portfolio</a>
+  <a href="index.html#process">Process</a>
+  <a href="copper-room-studio.html" class="current">Studio</a>
+  <a href="index.html#newsletter">Newsletter</a>
+  <a href="index.html#contact">Contact</a>
+</div>
+
 <div class="fixed-bar">
-  <span class="tagline">Porto — Analogue sound design</span>
+  <span class="tagline">Analogue sound design</span>
   <div class="bar-socials">
     <a href="https://instagram.com/bonifaciothecreator" target="_blank">Instagram</a>
     <a href="https://youtube.com/@bonifaciothecreator" target="_blank">YouTube</a>
@@ -219,6 +229,27 @@
 </div>
 
 <script>
+  const menuToggle = document.getElementById('menuToggle');
+  const navOverlay = document.getElementById('navOverlay');
+
+  navOverlay.classList.remove('open');
+  menuToggle.classList.remove('open');
+
+  function closeMenu() {
+    menuToggle.classList.remove('open');
+    navOverlay.classList.remove('open');
+  }
+
+  menuToggle.addEventListener('click', () => { menuToggle.classList.toggle('open'); navOverlay.classList.toggle('open'); });
+  menuToggle.addEventListener('touchend', (e) => { e.preventDefault(); menuToggle.classList.toggle('open'); navOverlay.classList.toggle('open'); });
+
+  const navClose = document.getElementById('navClose');
+  navClose.addEventListener('click', closeMenu);
+  navClose.addEventListener('touchend', (e) => { e.preventDefault(); closeMenu(); });
+
+  window.addEventListener('unload', () => {});
+  window.addEventListener('pageshow', () => { navOverlay.classList.remove('open'); menuToggle.classList.remove('open'); });
+
   const canvas = document.getElementById('c');
   const ctx = canvas.getContext('2d');
   const a = 3, b = 2;
@@ -232,8 +263,7 @@
     const R = Math.min(W, H) * 0.42;
     const steps = 600;
     const d = Math.sin(elapsed * 0.00016) * Math.PI;
-    ctx.fillStyle = '#0a0a0a';
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, W, H);
     ctx.beginPath();
     for (let s = 0; s <= steps; s++) {
       const angle = (s / steps) * Math.PI * 2;
@@ -242,8 +272,7 @@
       s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     }
     ctx.closePath();
-    ctx.strokeStyle = 'rgba(232,228,220,0.05)';
-    ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = 'rgba(232,228,220,0.05)'; ctx.lineWidth = 1; ctx.stroke();
     ctx.beginPath();
     for (let s = 0; s <= steps; s++) {
       const angle = (s / steps) * Math.PI * 2;
@@ -252,8 +281,7 @@
       s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     }
     ctx.closePath();
-    ctx.strokeStyle = 'rgba(180,120,60,0.35)';
-    ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = 'rgba(180,120,60,0.35)'; ctx.lineWidth = 1; ctx.stroke();
     requestAnimationFrame(draw);
   }
   resize(); window.addEventListener('resize', resize); requestAnimationFrame(draw);
@@ -261,33 +289,3 @@
 
 </body>
 </html>
-<!-- MOBILE STYLES APPENDED -->
-<style>
-@media (max-width: 768px) {
-  nav { padding: 1.5rem; align-items: center; }
-  .nav-links { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 100; flex-direction: column; justify-content: center; align-items: flex-end; padding: 3rem 2rem; text-align: right; }
-  .nav-links.open { display: flex; }
-  .nav-links a { font-size: 26px; padding: 0.4rem 0; }
-  .menu-toggle { display: flex !important; }
-  .page-header { padding: 3rem 1.5rem 0; }
-  .photo-grid { grid-template-columns: 1fr 1fr; }
-  .photo-item.wide { grid-column: span 2; aspect-ratio: 16/9; }
-  .photo-item.tall { grid-row: span 1; }
-  .gear-section { padding: 3rem 1.5rem; }
-  .gear-grid { grid-template-columns: 1fr; }
-  .gear-col { border-right: none !important; padding-left: 0 !important; padding-right: 0 !important; border-bottom: 0.5px solid var(--border); padding-bottom: 2rem; margin-bottom: 0; }
-  .gear-col:last-child { border-bottom: none; }
-  .fixed-bar { padding: 1rem 1.5rem; }
-  .fixed-bar .tagline { display: none; }
-}
-</style>
-<script>
-  const mt = document.getElementById('menuToggle');
-  const nl = document.getElementById('navLinks');
-  if (mt) {
-    mt.addEventListener('click', () => nl.classList.toggle('open'));
-    mt.addEventListener('touchend', (e) => { e.preventDefault(); nl.classList.toggle('open'); });
-  }
-  window.addEventListener('unload', () => {});
-  window.addEventListener('pageshow', () => { if (nl) nl.classList.remove('open'); });
-</script>
