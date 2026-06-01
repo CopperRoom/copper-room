@@ -31,13 +31,21 @@
     .nav-links a:hover { opacity: 0.4; }
     .nav-links a.current { color: var(--copper); opacity: 1; }
 
+    /* hamburger */
+    .menu-toggle { display: none; pointer-events: all; cursor: pointer; flex-direction: column; gap: 5px; align-items: flex-end; }
+    .menu-toggle span { display: block; height: 0.5px; background: var(--fg); transition: all 0.2s; }
+    .menu-toggle span:nth-child(1) { width: 24px; }
+    .menu-toggle span:nth-child(2) { width: 16px; }
+    .menu-toggle span:nth-child(3) { width: 20px; }
+
+    /* NAV OVERLAY — desktop: never shown */
+    .nav-overlay { display: none !important; }
+
     /* SHARED */
     .section { padding: 5rem 2.5rem; border-top: 0.5px solid var(--border); }
     .solid { background: var(--bg); }
     .transparent { background: transparent; }
     .label { font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--muted); margin-bottom: 3rem; }
-    .copper-link { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--copper); text-decoration: none; border-bottom: 0.5px solid rgba(180,120,60,0.3); padding-bottom: 2px; cursor: pointer; transition: border-color 0.2s; }
-    .copper-link:hover { border-color: var(--copper); }
 
     /* PAGE HEADER */
     .page-header { padding: 5rem 2.5rem 3rem; background: transparent; }
@@ -45,16 +53,7 @@
 
     /* TRACKS */
     .track-list { border-top: 0.5px solid var(--border); }
-    .track {
-      display: grid;
-      grid-template-columns: 3rem 1fr auto;
-      align-items: baseline;
-      gap: 1.5rem;
-      padding: 1.8rem 0;
-      border-bottom: 0.5px solid var(--border);
-      transition: opacity 0.2s;
-      cursor: default;
-    }
+    .track { display: grid; grid-template-columns: 3rem 1fr auto; align-items: baseline; gap: 1.5rem; padding: 1.8rem 0; border-bottom: 0.5px solid var(--border); transition: opacity 0.2s; cursor: default; }
     .track:hover { opacity: 0.6; }
     .track-num { font-size: 10px; letter-spacing: 0.2em; color: var(--copper); font-weight: 400; }
     .track-info h3 { font-size: 18px; font-weight: 300; color: var(--fg); margin-bottom: 0.3rem; }
@@ -72,16 +71,9 @@
     .ep-sub { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 1rem; }
     .ep-year { font-size: 10px; letter-spacing: 0.15em; color: rgba(232,228,220,0.2); }
 
-    /* TRACK COVER */
-    .track { grid-template-columns: 3rem 1fr auto; }
-    .track-cover { display: none; }
-    .track-cover-empty { display: none; }
+    /* CLIENT WORK */
     .client-grid { display: grid; grid-template-columns: repeat(2, 1fr); border-top: 0.5px solid var(--border); }
-    .client {
-      padding: 2.5rem 2rem 2.5rem 0;
-      border-right: 0.5px solid var(--border);
-      border-bottom: 0.5px solid var(--border);
-    }
+    .client { padding: 2.5rem 2rem 2.5rem 0; border-right: 0.5px solid var(--border); border-bottom: 0.5px solid var(--border); }
     .client:nth-child(even) { border-right: none; padding-left: 2rem; padding-right: 0; }
     .client:nth-last-child(-n+2) { border-bottom: none; }
     .client-name { font-size: 18px; font-weight: 300; color: var(--fg); margin-bottom: 0.5rem; }
@@ -94,6 +86,40 @@
     .fixed-bar .bar-socials { display: flex; gap: 1.2rem; pointer-events: all; }
     .fixed-bar .bar-socials a { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); text-decoration: none; cursor: pointer; transition: color 0.2s; }
     .fixed-bar .bar-socials a:hover { color: var(--fg); }
+
+    /* MOBILE */
+    @media (max-width: 768px) {
+      nav { padding: 1.5rem; align-items: center; }
+      .nav-links { display: none; }
+      .menu-toggle { display: flex; }
+      .nav-overlay {
+        display: none !important;
+        position: fixed;
+        inset: 0;
+        background: var(--bg);
+        z-index: 100;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-end;
+        padding: 3rem 2rem;
+        text-align: right;
+        pointer-events: all;
+      }
+      .nav-overlay.open { display: flex !important; }
+      .nav-overlay a { display: block; font-size: 26px; font-weight: 300; font-family: 'Inter', sans-serif; padding: 0.35rem 0; letter-spacing: 0.02em; color: var(--fg); text-decoration: none; pointer-events: all; }
+      .nav-overlay a:hover { opacity: 0.4; }
+      .nav-close { position: absolute; top: 1.8rem; right: 1.8rem; font-size: 8px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); cursor: pointer; pointer-events: all; font-family: 'Inter', sans-serif; font-weight: 300; }
+      .section { padding: 3rem 1.5rem; }
+      .ep-grid { grid-template-columns: 1fr; }
+      .ep { border-right: none; padding-left: 0; border-bottom: 0.5px solid var(--border); }
+      .ep:last-child { border-bottom: none; padding-left: 0; }
+      .track { grid-template-columns: 2.5rem 1fr; gap: 1rem; }
+      .track-meta { display: none; }
+      .client-grid { grid-template-columns: 1fr; }
+      .client { border-right: none !important; padding-left: 0 !important; padding-right: 0 !important; }
+      .fixed-bar { padding: 1rem 1.5rem; }
+      .fixed-bar .tagline { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -105,8 +131,7 @@
 
     <nav>
       <a class="wordmark" href="index.html">Copper Room</a>
-      <button class="menu-toggle" id="menuToggle" style="display:none;pointer-events:all;cursor:pointer;background:none;border:none;padding:0;flex-direction:column;gap:5px;align-items:flex-end;" aria-label="Menu"><span style="display:block;height:0.5px;width:24px;background:#e8e4dc;"></span><span style="display:block;height:0.5px;width:16px;background:#e8e4dc;"></span><span style="display:block;height:0.5px;width:20px;background:#e8e4dc;"></span></button>
-      <div class="nav-links" id="navLinks">
+      <div class="nav-links">
         <a href="index.html#about">About</a>
         <a href="copper-room-packs.html">Sound Packs</a>
         <a href="index.html#services">Services</a>
@@ -116,6 +141,9 @@
         <a href="index.html#newsletter">Newsletter</a>
         <a href="index.html#contact">Contact</a>
       </div>
+      <button class="menu-toggle" id="menuToggle" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
     </nav>
 
     <div class="page-header">
@@ -126,7 +154,6 @@
     <div class="section solid">
       <p class="label">Releases</p>
       <div class="ep-grid">
-
         <div class="ep">
           <img class="ep-cover" src="lockdown.jpg" alt="Lockdown Tapes">
           <div class="ep-info">
@@ -136,7 +163,6 @@
             <span class="ep-year">2022</span>
           </div>
         </div>
-
         <div class="ep">
           <img class="ep-cover" src="hanami.jpg" alt="Hanami">
           <div class="ep-info">
@@ -146,7 +172,6 @@
             <span class="ep-year">2020</span>
           </div>
         </div>
-
       </div>
     </div>
 
@@ -154,7 +179,6 @@
     <div class="section transparent">
       <p class="label">Selected Tracks</p>
       <div class="track-list">
-
         <div class="track">
           <span class="track-num">01</span>
           <div class="track-info">
@@ -163,7 +187,6 @@
           </div>
           <div class="track-meta">2024</div>
         </div>
-
         <div class="track">
           <span class="track-num">02</span>
           <div class="track-info">
@@ -172,7 +195,6 @@
           </div>
           <div class="track-meta">2025</div>
         </div>
-
       </div>
     </div>
 
@@ -180,46 +202,74 @@
     <div class="section transparent">
       <p class="label">Client Work</p>
       <div class="client-grid">
-
         <div class="client">
           <p class="client-role">Production · Mixing</p>
           <p class="client-name">Client Project A</p>
           <p class="client-detail">Full production and mix — electronic / ambient</p>
         </div>
-
         <div class="client">
           <p class="client-role">Mixing · Mastering</p>
           <p class="client-name">Client Project B</p>
           <p class="client-detail">Mixing and mastering — indie / experimental</p>
         </div>
-
         <div class="client">
           <p class="client-role">Mastering</p>
           <p class="client-name">Client Project C</p>
           <p class="client-detail">Analogue mastering chain — electronic</p>
         </div>
-
         <div class="client">
           <p class="client-role">Production</p>
           <p class="client-name">Client Project D</p>
           <p class="client-detail">Co-production — singer-songwriter</p>
         </div>
-
       </div>
     </div>
 
   </div>
 </div>
 
+<div class="nav-overlay" id="navOverlay">
+  <span class="nav-close" id="navClose">Close</span>
+  <a href="index.html#about">About</a>
+  <a href="copper-room-packs.html">Sound Packs</a>
+  <a href="index.html#services">Services</a>
+  <a href="copper-room-portfolio.html" class="current">Portfolio</a>
+  <a href="index.html#process">Process</a>
+  <a href="copper-room-studio.html">Studio</a>
+  <a href="index.html#newsletter">Newsletter</a>
+  <a href="index.html#contact">Contact</a>
+</div>
+
 <div class="fixed-bar">
-  <span class="tagline">Porto — Analogue sound design</span>
+  <span class="tagline">Analogue sound design</span>
   <div class="bar-socials">
-    <a href="#">Instagram</a>
-    <a href="#">YouTube</a>
+    <a href="https://instagram.com/bonifaciothecreator" target="_blank">Instagram</a>
+    <a href="https://youtube.com/@bonifaciothecreator" target="_blank">YouTube</a>
   </div>
 </div>
 
 <script>
+  const menuToggle = document.getElementById('menuToggle');
+  const navOverlay = document.getElementById('navOverlay');
+
+  navOverlay.classList.remove('open');
+  menuToggle.classList.remove('open');
+
+  function closeMenu() {
+    menuToggle.classList.remove('open');
+    navOverlay.classList.remove('open');
+  }
+
+  menuToggle.addEventListener('click', () => { menuToggle.classList.toggle('open'); navOverlay.classList.toggle('open'); });
+  menuToggle.addEventListener('touchend', (e) => { e.preventDefault(); menuToggle.classList.toggle('open'); navOverlay.classList.toggle('open'); });
+
+  const navClose = document.getElementById('navClose');
+  navClose.addEventListener('click', closeMenu);
+  navClose.addEventListener('touchend', (e) => { e.preventDefault(); closeMenu(); });
+
+  window.addEventListener('unload', () => {});
+  window.addEventListener('pageshow', () => { navOverlay.classList.remove('open'); menuToggle.classList.remove('open'); });
+
   const canvas = document.getElementById('c');
   const ctx = canvas.getContext('2d');
   const a = 3, b = 2;
@@ -233,8 +283,7 @@
     const R = Math.min(W, H) * 0.42;
     const steps = 600;
     const d = Math.sin(elapsed * 0.00016) * Math.PI;
-    ctx.fillStyle = '#0a0a0a';
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, W, H);
     ctx.beginPath();
     for (let s = 0; s <= steps; s++) {
       const angle = (s / steps) * Math.PI * 2;
@@ -243,8 +292,7 @@
       s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     }
     ctx.closePath();
-    ctx.strokeStyle = 'rgba(232,228,220,0.05)';
-    ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = 'rgba(232,228,220,0.05)'; ctx.lineWidth = 1; ctx.stroke();
     ctx.beginPath();
     for (let s = 0; s <= steps; s++) {
       const angle = (s / steps) * Math.PI * 2;
@@ -253,8 +301,7 @@
       s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     }
     ctx.closePath();
-    ctx.strokeStyle = 'rgba(180,120,60,0.35)';
-    ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = 'rgba(180,120,60,0.35)'; ctx.lineWidth = 1; ctx.stroke();
     requestAnimationFrame(draw);
   }
   resize(); window.addEventListener('resize', resize); requestAnimationFrame(draw);
@@ -262,30 +309,3 @@
 
 </body>
 </html>
-<!-- MOBILE STYLES APPENDED -->
-<style>
-@media (max-width: 768px) {
-  nav { padding: 1.5rem; align-items: center; }
-  .nav-links { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 100; flex-direction: column; justify-content: center; align-items: flex-end; padding: 3rem 2rem; text-align: right; }
-  .nav-links.open { display: flex; }
-  .nav-links a { font-size: 26px; padding: 0.4rem 0; }
-  .menu-toggle { display: flex !important; }
-  .section { padding: 3rem 1.5rem; }
-  .track { grid-template-columns: 2.5rem 1fr; gap: 1rem; }
-  .track-meta { display: none; }
-  .client-grid { grid-template-columns: 1fr; }
-  .client { border-right: none !important; padding-left: 0 !important; padding-right: 0 !important; }
-  .fixed-bar { padding: 1rem 1.5rem; }
-  .fixed-bar .tagline { display: none; }
-}
-</style>
-<script>
-  const mt = document.getElementById('menuToggle');
-  const nl = document.getElementById('navLinks');
-  if (mt) {
-    mt.addEventListener('click', () => nl.classList.toggle('open'));
-    mt.addEventListener('touchend', (e) => { e.preventDefault(); nl.classList.toggle('open'); });
-  }
-  window.addEventListener('unload', () => {});
-  window.addEventListener('pageshow', () => { if (nl) nl.classList.remove('open'); });
-</script>
