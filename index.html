@@ -171,6 +171,11 @@
       .form-field.full { grid-column: span 1; }
     }
 
+
+    .form-success { display: none; padding: 3rem 0; }
+    .form-success h3 { font-size: 20px; font-weight: 300; color: var(--fg); margin-bottom: 0.8rem; }
+    .form-success p { font-size: 13px; color: rgba(232,228,220,0.5); line-height: 1.9; }
+
     /* NAV OVERLAY */
     .nav-overlay { display: none !important; }
 
@@ -386,6 +391,10 @@
           </div>
           <button type="submit" class="form-submit">Send message</button>
         </form>
+        <div class="form-success" id="form-success">
+          <h3>Message sent.</h3>
+          <p>Thank you for reaching out — I'll get back to you shortly.</p>
+        </div>
       </div>
       <div class="footer-inner">
         <div class="footer-info">Copper Room - All rights reserved 2026<br>Porto, Portugal<br>Los Angeles, California</div>
@@ -507,6 +516,22 @@
     requestAnimationFrame(draw);
   }
   resize(); window.addEventListener('resize', resize); requestAnimationFrame(draw);
+
+  // Contact form
+  const form = document.querySelector('form[name="contact"]');
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = new FormData(form);
+      try {
+        await fetch('/', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(data).toString() });
+        form.style.display = 'none';
+        document.getElementById('form-success').style.display = 'block';
+      } catch (err) {
+        alert('Something went wrong. Please try again or email hello@copperroom.studio');
+      }
+    });
+  }
 </script>
 
 </body>
