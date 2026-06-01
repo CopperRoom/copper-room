@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-store">
+  <title>You're in — Copper Room</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #0a0a0a;
+      --fg: #e8e4dc;
+      --muted: rgba(232,228,220,0.35);
+      --border: rgba(232,228,220,0.1);
+      --copper: #b47830;
+    }
+    html, body { height: 100%; }
+    body { background: var(--bg); color: var(--fg); font-family: 'Inter', sans-serif; font-weight: 300; }
+    canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+    .page {
+      position: relative;
+      z-index: 1;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 2rem 2.5rem;
+    }
+    .wordmark { font-size: 13px; font-weight: 400; letter-spacing: 0.01em; color: var(--fg); text-decoration: none; }
+    .content {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      max-width: 480px;
+    }
+    .label { font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--copper); }
+    h1 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 300; line-height: 1.15; letter-spacing: -0.01em; }
+    p { font-size: 14px; line-height: 1.9; color: rgba(232,228,220,0.55); }
+    .back {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--copper);
+      text-decoration: none;
+      border-bottom: 0.5px solid rgba(180,120,60,0.3);
+      padding-bottom: 2px;
+      align-self: flex-start;
+    }
+    .footer { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="page">
+  <a class="wordmark" href="index.html">Copper Room</a>
+  <div class="content">
+    <p class="label">Newsletter</p>
+    <h1>You're in.</h1>
+    <p>Welcome to the list. A free sample file will be with you shortly — keep an eye on your inbox.</p>
+    <a class="back" href="index.html">Back to Copper Room</a>
+  </div>
+  <span class="footer">Porto — Analogue sound design</span>
+</div>
+<script>
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const a = 3, b = 2;
+  let elapsed = 0, last = null;
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  function draw(ts) {
+    if (last === null) last = ts;
+    elapsed += ts - last; last = ts;
+    const W = canvas.width, H = canvas.height;
+    const cx = W * 0.5, cy = H * 0.5;
+    const R = Math.min(W, H) * 0.42;
+    const steps = 600;
+    const d = Math.sin(elapsed * 0.00016) * Math.PI;
+    ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, W, H);
+    ctx.beginPath();
+    for (let s = 0; s <= steps; s++) {
+      const angle = (s / steps) * Math.PI * 2;
+      const x = cx + R * Math.sin(a * angle + d + 0.3);
+      const y = cy + R * Math.sin(b * angle);
+      s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(232,228,220,0.05)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.beginPath();
+    for (let s = 0; s <= steps; s++) {
+      const angle = (s / steps) * Math.PI * 2;
+      const x = cx + R * Math.sin(a * angle + d);
+      const y = cy + R * Math.sin(b * angle);
+      s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(180,120,60,0.35)'; ctx.lineWidth = 1; ctx.stroke();
+    requestAnimationFrame(draw);
+  }
+  resize(); window.addEventListener('resize', resize); requestAnimationFrame(draw);
+</script>
+</body>
+</html>
