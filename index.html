@@ -119,6 +119,58 @@
     .fixed-bar .bar-socials a { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); text-decoration: none; cursor: pointer; transition: color 0.2s; }
     .fixed-bar .bar-socials a:hover { color: var(--fg); }
 
+
+    /* CONTACT FORM */
+    .contact-form { margin-top: 3rem; border-top: 0.5px solid var(--border); padding-top: 3rem; max-width: 600px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+    .form-field { display: flex; flex-direction: column; gap: 0.5rem; }
+    .form-field.full { grid-column: span 2; }
+    .form-field label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); }
+    .form-field input,
+    .form-field select,
+    .form-field textarea {
+      background: transparent;
+      border: none;
+      border-bottom: 0.5px solid rgba(232,228,220,0.2);
+      outline: none;
+      padding: 0.6rem 0;
+      font-size: 13px;
+      color: var(--fg);
+      font-family: 'Inter', sans-serif;
+      font-weight: 300;
+      transition: border-color 0.2s;
+      -webkit-appearance: none;
+      appearance: none;
+      border-radius: 0;
+    }
+    .form-field input:focus,
+    .form-field select:focus,
+    .form-field textarea:focus { border-bottom-color: var(--copper); }
+    .form-field input::placeholder,
+    .form-field textarea::placeholder { color: rgba(232,228,220,0.2); }
+    .form-field select { cursor: pointer; color: rgba(232,228,220,0.5); }
+    .form-field select option { background: #1a1a1a; color: var(--fg); }
+    .form-field textarea { resize: none; min-height: 100px; }
+    .form-submit {
+      margin-top: 2rem;
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--bg);
+      background: var(--copper);
+      border: none;
+      padding: 0.85rem 2rem;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      font-weight: 400;
+      transition: opacity 0.2s;
+    }
+    .form-submit:hover { opacity: 0.8; }
+    @media (max-width: 768px) {
+      .form-row { grid-template-columns: 1fr; }
+      .form-field.full { grid-column: span 1; }
+    }
+
     /* NAV OVERLAY */
     .nav-overlay { display: none !important; }
 
@@ -259,11 +311,6 @@
           <p class="service-title">Music for Film</p>
           <p class="service-desc">Original scores and sound design for film, video, and moving image. Analogue textures and electronic composition tailored to picture.</p>
         </div>
-        <div class="service">
-          <p class="service-num">06</p>
-          <p class="service-title">Sound Design</p>
-          <p class="service-desc">Custom sonic identities, textures, and effects for brands, installations, games, and moving image. Built from hardware — no presets, no shortcuts.</p>
-</div>
       </div>
     </div>
 
@@ -299,6 +346,46 @@
       <div class="contact-inner">
         <h2>Let's make<br>something awesome</h2>
         <a href="mailto:hello@copperroom.studio">hello@copperroom.studio</a>
+        <form class="contact-form" name="contact" method="POST" data-netlify="true" netlify-honeypot="bot-field">
+          <input type="hidden" name="form-name" value="contact">
+          <input type="hidden" name="bot-field">
+          <div class="form-row">
+            <div class="form-field">
+              <label for="name">Name</label>
+              <input type="text" id="name" name="name" placeholder="Your name" required>
+            </div>
+            <div class="form-field">
+              <label for="email">Email</label>
+              <input type="email" id="email" name="email" placeholder="your@email.com" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label for="subject">Subject</label>
+              <input type="text" id="subject" name="subject" placeholder="What's this about?" required>
+            </div>
+            <div class="form-field">
+              <label for="service">Service</label>
+              <select id="service" name="service" required>
+                <option value="" disabled selected>Select a service</option>
+                <option value="production">Production</option>
+                <option value="mixing">Mixing</option>
+                <option value="mastering">Mastering</option>
+                <option value="consulting">Consulting</option>
+                <option value="music-for-film">Music for Film</option>
+                <option value="sound-design">Sound Design</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field full">
+              <label for="message">Message</label>
+              <textarea id="message" name="message" placeholder="Tell me about your project..." required></textarea>
+            </div>
+          </div>
+          <button type="submit" class="form-submit">Send message</button>
+        </form>
       </div>
       <div class="footer-inner">
         <div class="footer-info">Copper Room - All rights reserved 2026<br>Porto, Portugal<br>Los Angeles, California</div>
