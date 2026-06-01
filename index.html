@@ -398,6 +398,9 @@
           <ul class="formkit-alert formkit-alert-error" data-element="errors" data-group="alert"></ul>
         </form>
       </div>
+      <div id="newsletter-success" style="display:none;">
+        <p style="font-size:13px;color:rgba(232,228,220,0.5);line-height:1.9;">You're in — check your inbox to confirm your subscription.</p>
+      </div>
     </div>
 
     <div class="section solid" id="contact">
@@ -570,6 +573,16 @@
     requestAnimationFrame(draw);
   }
   resize(); window.addEventListener('resize', resize); requestAnimationFrame(draw);
+
+  // Show custom success message when Kit confirms submission
+  const kitObserver = new MutationObserver(() => {
+    const kitSuccess = document.querySelector('[data-element="success"]');
+    if (kitSuccess && kitSuccess.offsetParent !== null) {
+      document.getElementById('kit-wrapper').style.display = 'none';
+      document.getElementById('newsletter-success').style.display = 'block';
+    }
+  });
+  kitObserver.observe(document.body, { childList: true, subtree: true, attributes: true });
 
   // Contact form
   const form = document.querySelector('form[name="contact"]');
