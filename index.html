@@ -178,7 +178,7 @@
 
 
     /* KIT MODAL OVERRIDE */
-    .formkit-modal, .formkit-overlay, .formkit-modal.guard { display: none !important; }
+    .formkit-modal, .formkit-overlay, .formkit-modal.guard, [data-group="modal"] { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
 
     /* KIT FORM OVERRIDES */
     #kit-wrapper .formkit-form { background: transparent !important; border: none !important; padding: 0 !important; max-width: none !important; }
@@ -570,14 +570,6 @@
     requestAnimationFrame(draw);
   }
   resize(); window.addEventListener('resize', resize); requestAnimationFrame(draw);
-
-  // Hide Kit Creator Network modal only
-  const observer = new MutationObserver(() => {
-    document.querySelectorAll('.formkit-modal.guard, .formkit-overlay').forEach(el => {
-      el.style.setProperty('display', 'none', 'important');
-    });
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
 
   // Contact form
   const form = document.querySelector('form[name="contact"]');
