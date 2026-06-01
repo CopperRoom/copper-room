@@ -342,7 +342,7 @@
         <h3>Join the list</h3>
         <p>A free sample file with every issue. Recordings from the studio, notes on the process, and occasional thoughts on analogue sound. No schedule, no filler — just signal.</p>
       </div>
-      <form id="bd-form" action="https://buttondown.com/api/emails/embed-subscribe/bonifacio" method="post" target="_blank">
+      <form id="bd-form">
         <input type="hidden" name="tag" value="copper-room-website">
         <div class="email-row">
           <input type="email" name="email" placeholder="your@email.com" required>
@@ -524,6 +524,27 @@
     requestAnimationFrame(draw);
   }
   resize(); window.addEventListener('resize', resize); requestAnimationFrame(draw);
+
+  // Buttondown newsletter form
+  const bdForm = document.getElementById('bd-form');
+  if (bdForm) {
+    bdForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = bdForm.querySelector('input[name="email"]').value;
+      try {
+        await fetch('https://api.buttondown.email/v1/subscribers', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Token 0d82a721-c769-4d19-9532-221de1904c4b',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email: email })
+        });
+      } catch (err) {}
+      bdForm.style.display = 'none';
+      document.getElementById('newsletter-success').style.display = 'block';
+    });
+  }
 
   // Contact form
   const form = document.querySelector('form[name="contact"]');
