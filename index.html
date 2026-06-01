@@ -176,6 +176,49 @@
     .form-success h3 { font-size: 20px; font-weight: 300; color: var(--fg); margin-bottom: 0.8rem; }
     .form-success p { font-size: 13px; color: rgba(232,228,220,0.5); line-height: 1.9; }
 
+
+    /* KIT FORM OVERRIDES */
+    #kit-wrapper .formkit-form { background: transparent !important; border: none !important; padding: 0 !important; max-width: none !important; }
+    #kit-wrapper [data-style] { min-height: 0 !important; display: block !important; }
+    #kit-wrapper .formkit-background { display: none !important; }
+    #kit-wrapper .formkit-container { background: transparent !important; padding: 0 !important; }
+    #kit-wrapper .formkit-header { display: none !important; }
+    #kit-wrapper .formkit-content { display: none !important; }
+    #kit-wrapper .formkit-disclaimer { display: none !important; }
+    #kit-wrapper .formkit-powered-by-convertkit-container { display: none !important; }
+    #kit-wrapper .seva-fields { display: flex; gap: 0; border: 0.5px solid rgba(232,228,220,0.2); max-width: 480px; }
+    #kit-wrapper .formkit-field { flex: 1; margin: 0 !important; }
+    #kit-wrapper .cr-kit-input {
+      background: transparent !important;
+      border: none !important;
+      outline: none !important;
+      padding: 0.85rem 1rem !important;
+      font-size: 12px !important;
+      color: #e8e4dc !important;
+      font-family: 'Inter', sans-serif !important;
+      font-weight: 300 !important;
+      width: 100% !important;
+      border-radius: 0 !important;
+    }
+    #kit-wrapper .cr-kit-input::placeholder { color: rgba(232,228,220,0.2) !important; }
+    #kit-wrapper .cr-kit-btn {
+      background: rgba(180,120,60,0.12) !important;
+      border: none !important;
+      border-left: 0.5px solid rgba(232,228,220,0.2) !important;
+      padding: 0.85rem 1.4rem !important;
+      font-size: 9px !important;
+      letter-spacing: 0.22em !important;
+      text-transform: uppercase !important;
+      color: #b47830 !important;
+      cursor: pointer !important;
+      font-family: 'Inter', sans-serif !important;
+      font-weight: 400 !important;
+      border-radius: 0 !important;
+      white-space: nowrap !important;
+    }
+    #kit-wrapper .cr-kit-btn:hover { background: rgba(180,120,60,0.22) !important; }
+    #kit-wrapper .formkit-spinner { display: none !important; }
+
     /* NAV OVERLAY */
     .nav-overlay { display: none !important; }
 
@@ -340,15 +383,17 @@
         <h3>Join the list</h3>
         <p>A free sample file with every issue. Recordings from the studio, notes on the process, and occasional thoughts on analogue sound. No schedule, no filler — just signal.</p>
       </div>
-      <form class="kit-form" action="https://app.kit.com/forms/9510987/subscriptions" method="post" id="kit-form">
-        <div class="email-row">
-          <input type="email" name="email_address" placeholder="your@email.com" required>
-          <button type="submit">Subscribe</button>
-        </div>
-        <input type="hidden" name="utf8" value="&#x2713;">
-      </form>
-      <div class="newsletter-success" id="newsletter-success" style="display:none;">
-        <p style="font-size:13px;color:rgba(232,228,220,0.5);line-height:1.9;">You're in — check your inbox to confirm your subscription.</p>
+      <div id="kit-wrapper">
+        <script src="https://f.convertkit.com/ckjs/ck.5.js"></script>
+        <form action="https://app.kit.com/forms/9510987/subscriptions" class="seva-form formkit-form" method="post" data-sv-form="9510987" data-uid="7a7092208b" data-format="inline" data-version="5">
+          <div data-element="fields" class="seva-fields formkit-fields">
+            <div class="formkit-field">
+              <input class="formkit-input cr-kit-input" name="email_address" aria-label="Email Address" placeholder="your@email.com" required type="email">
+            </div>
+            <button data-element="submit" class="formkit-submit cr-kit-btn"><span>Subscribe</span></button>
+          </div>
+          <ul class="formkit-alert formkit-alert-error" data-element="errors" data-group="alert"></ul>
+        </form>
       </div>
     </div>
 
@@ -522,23 +567,6 @@
     requestAnimationFrame(draw);
   }
   resize(); window.addEventListener('resize', resize); requestAnimationFrame(draw);
-
-  // Kit newsletter form
-  const kitForm = document.getElementById('kit-form');
-  if (kitForm) {
-    kitForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const data = new FormData(kitForm);
-      try {
-        await fetch(kitForm.action, { method: 'POST', body: new URLSearchParams(data), mode: 'no-cors' });
-        kitForm.style.display = 'none';
-        document.getElementById('newsletter-success').style.display = 'block';
-      } catch (err) {
-        kitForm.style.display = 'none';
-        document.getElementById('newsletter-success').style.display = 'block';
-      }
-    });
-  }
 
   // Contact form
   const form = document.querySelector('form[name="contact"]');
