@@ -525,20 +525,17 @@
   }
   resize(); window.addEventListener('resize', resize); requestAnimationFrame(draw);
 
-  // Buttondown newsletter form
+  // Buttondown newsletter form via Netlify function
   const bdForm = document.getElementById('bd-form');
   if (bdForm) {
     bdForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = bdForm.querySelector('input[name="email"]').value;
       try {
-        await fetch('https://api.buttondown.email/v1/subscribers', {
+        await fetch('/.netlify/functions/subscribe', {
           method: 'POST',
-          headers: {
-            'Authorization': 'Token 0d82a721-c769-4d19-9532-221de1904c4b',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ email: email })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
         });
       } catch (err) {}
       bdForm.style.display = 'none';
