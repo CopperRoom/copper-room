@@ -571,12 +571,11 @@
   }
   resize(); window.addEventListener('resize', resize); requestAnimationFrame(draw);
 
-  // Hide Kit Creator Network modal
+  // Hide Kit Creator Network modal only
   const observer = new MutationObserver(() => {
-    const modal = document.querySelector('.formkit-modal');
-    const overlay = document.querySelector('.formkit-overlay');
-    if (modal) modal.style.display = 'none';
-    if (overlay) overlay.style.display = 'none';
+    document.querySelectorAll('.formkit-modal.guard, .formkit-overlay').forEach(el => {
+      el.style.setProperty('display', 'none', 'important');
+    });
   });
   observer.observe(document.body, { childList: true, subtree: true });
 
