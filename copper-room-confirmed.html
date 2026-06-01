@@ -26,7 +26,7 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 2rem 2.5rem;
+      padding: 2rem 2.5rem 6rem;
     }
     .wordmark { font-size: 13px; font-weight: 400; letter-spacing: 0.01em; color: var(--fg); text-decoration: none; }
     .content {
@@ -48,7 +48,22 @@
       padding-bottom: 2px;
       align-self: flex-start;
     }
-    .footer { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+    .footer-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 20;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.2rem 2.5rem;
+      background: var(--bg);
+      border-top: 0.5px solid var(--border);
+    }
+    .footer-bar .tagline { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+    .footer-bar .socials { display: flex; gap: 1.2rem; }
+    .footer-bar .socials a { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); text-decoration: none; }
   </style>
 </head>
 <body>
@@ -61,7 +76,14 @@
     <p>Welcome to the list. A free sample file will be with you shortly — keep an eye on your inbox.</p>
     <a class="back" href="index.html">Back to Copper Room</a>
   </div>
-  <span class="footer">Porto — Analogue sound design</span>
+</div>
+
+<div class="footer-bar">
+  <span class="tagline">Analogue sound design</span>
+  <div class="socials">
+    <a href="https://instagram.com/bonifaciothecreator" target="_blank">Instagram</a>
+    <a href="https://youtube.com/@bonifaciothecreator" target="_blank">YouTube</a>
+  </div>
 </div>
 <script>
   const canvas = document.getElementById('c');
