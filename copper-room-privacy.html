@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-store">
+  <title>Privacy Policy — Copper Room</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    button { -webkit-appearance: none; appearance: none; background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+    :root {
+      --bg: #0a0a0a;
+      --fg: #e8e4dc;
+      --muted: rgba(232,228,220,0.35);
+      --border: rgba(232,228,220,0.1);
+      --copper: #b47830;
+    }
+    html, body { height: 100%; overflow: hidden; }
+    body { background: var(--bg); color: var(--fg); font-family: 'Inter', sans-serif; font-weight: 300; }
+    #scroller { position: fixed; inset: 0; overflow-y: scroll; scroll-behavior: smooth; }
+    canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+    .page { position: relative; z-index: 1; padding-bottom: 4rem; }
+
+    /* NAV */
+    nav { position: sticky; top: 0; z-index: 10; display: flex; justify-content: space-between; align-items: flex-start; padding: 2rem 2.5rem; pointer-events: none; }
+    .wordmark { font-size: 13px; font-weight: 400; letter-spacing: 0.01em; color: var(--fg); pointer-events: all; cursor: pointer; text-decoration: none; }
+    .nav-links { text-align: right; line-height: 1.6; pointer-events: all; }
+    .nav-links a { display: block; font-size: 22px; font-weight: 300; letter-spacing: 0.04em; color: var(--fg); text-decoration: none; cursor: pointer; transition: opacity 0.2s, color 0.2s; }
+    .nav-links a:hover { opacity: 0.4; }
+
+    /* hamburger */
+    .menu-toggle { display: none; pointer-events: all; cursor: pointer; flex-direction: column; gap: 5px; align-items: flex-end; }
+    .menu-toggle span { display: block; height: 0.5px; background: var(--fg); transition: all 0.2s; }
+    .menu-toggle span:nth-child(1) { width: 24px; }
+    .menu-toggle span:nth-child(2) { width: 16px; }
+    .menu-toggle span:nth-child(3) { width: 20px; }
+
+    /* NAV OVERLAY */
+    .nav-overlay { display: none !important; }
+
+    /* PAGE HEADER */
+    .page-header { padding: 5rem 2.5rem 3rem; background: transparent; border-top: 0.5px solid var(--border); }
+    .page-header h1 { font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 300; line-height: 1.1; letter-spacing: -0.01em; margin-bottom: 1rem; }
+    .page-header p { font-size: 12px; color: var(--muted); letter-spacing: 0.05em; }
+
+    /* LANG TOGGLE */
+    .lang-toggle { display: flex; gap: 0; margin-top: 2rem; border: 0.5px solid var(--border); width: fit-content; }
+    .lang-btn { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; padding: 0.5rem 1.2rem; cursor: pointer; color: var(--muted); font-family: 'Inter', sans-serif; font-weight: 300; transition: color 0.2s, background 0.2s; }
+    .lang-btn.active { color: var(--copper); background: rgba(180,120,60,0.08); }
+
+    /* CONTENT */
+    .content { display: none; padding: 0 2.5rem 5rem; }
+    .content.active { display: block; }
+
+    .policy-section { border-top: 0.5px solid var(--border); padding: 3rem 0; max-width: 720px; }
+    .policy-section:first-child { border-top: none; }
+    .policy-label { font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--copper); margin-bottom: 1.2rem; font-weight: 400; }
+    .policy-section h2 { font-size: 20px; font-weight: 300; color: var(--fg); margin-bottom: 1.5rem; line-height: 1.2; }
+    .policy-section p { font-size: 13px; line-height: 1.95; color: rgba(232,228,220,0.55); margin-bottom: 1rem; }
+    .policy-section p:last-child { margin-bottom: 0; }
+    .policy-section ul { list-style: none; margin: 0.5rem 0 1rem; }
+    .policy-section ul li { font-size: 13px; line-height: 1.9; color: rgba(232,228,220,0.55); padding: 0.3rem 0; padding-left: 1rem; position: relative; }
+    .policy-section ul li::before { content: '—'; position: absolute; left: 0; color: var(--copper); font-size: 11px; }
+    .policy-section a { color: var(--copper); text-decoration: none; border-bottom: 0.5px solid rgba(180,120,60,0.3); }
+
+    /* FIXED FOOTER BAR */
+    .fixed-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 2.5rem; background: var(--bg); border-top: 0.5px solid var(--border); pointer-events: none; }
+    .fixed-bar .tagline { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+    .fixed-bar .bar-socials { display: flex; gap: 1.2rem; pointer-events: all; }
+    .fixed-bar .bar-socials a { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); text-decoration: none; cursor: pointer; transition: color 0.2s; }
+    .fixed-bar .bar-socials a:hover { color: var(--fg); }
+
+    /* MOBILE */
+    @media (max-width: 768px) {
+      nav { padding: 1.5rem; align-items: center; }
+      .nav-links { display: none; }
+      .menu-toggle { display: flex; }
+      .nav-overlay {
+        display: none !important;
+        position: fixed;
+        inset: 0;
+        background: var(--bg);
+        z-index: 100;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-end;
+        padding: 3rem 2rem;
+        text-align: right;
+        pointer-events: all;
+      }
+      .nav-overlay.open { display: flex !important; }
+      .nav-overlay a { display: block; font-size: 26px; font-weight: 300; font-family: 'Inter', sans-serif; padding: 0.35rem 0; letter-spacing: 0.02em; color: var(--fg); text-decoration: none; pointer-events: all; }
+      .nav-close { position: absolute; top: 1.8rem; right: 1.8rem; font-size: 8px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); cursor: pointer; pointer-events: all; font-family: 'Inter', sans-serif; font-weight: 300; }
+      .page-header { padding: 3rem 1.5rem 2rem; }
+      .content { padding: 0 1.5rem 3rem; }
+      .fixed-bar { padding: 1rem 1.5rem; }
+      .fixed-bar .tagline { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div id="scroller">
+  <div class="page">
+
+    <nav>
+      <a class="wordmark" href="index.html">Copper Room</a>
+      <div class="nav-links">
+        <a href="index.html#about">About</a>
+        <a href="copper-room-packs.html">Sound Packs</a>
+        <a href="index.html#services">Services</a>
+        <a href="copper-room-portfolio.html">Portfolio</a>
+        <a href="index.html#process">Process</a>
+        <a href="copper-room-studio.html">Studio</a>
+        <a href="index.html#newsletter">Newsletter</a>
+        <a href="index.html#contact">Contact</a>
+      </div>
+      <button class="menu-toggle" id="menuToggle" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </nav>
+
+    <div class="page-header">
+      <h1>Privacy Policy</h1>
+      <p>Last updated: June 2026</p>
+      <div class="lang-toggle">
+        <span class="lang-btn active" onclick="setLang('en')">English</span>
+        <span class="lang-btn" onclick="setLang('pt')">Português</span>
+      </div>
+    </div>
+
+    <!-- ENGLISH -->
+    <div class="content active" id="content-en">
+
+      <div class="policy-section">
+        <p class="policy-label">01</p>
+        <h2>Who we are</h2>
+        <p>Copper Room is operated by João Bonifácio, based in Porto, Portugal. For the purposes of this policy, "we", "us", and "our" refer to Copper Room.</p>
+        <p>Contact: <a href="mailto:hello@copperroom.studio">hello@copperroom.studio</a></p>
+      </div>
+
+      <div class="policy-section">
+        <p class="policy-label">02</p>
+        <h2>What data we collect</h2>
+        <p>We collect personal data only when you actively provide it to us. This may include:</p>
+        <ul>
+          <li>Your email address, when you subscribe to our newsletter</li>
+          <li>Your name and email address, when you contact us via the contact form or email</li>
+          <li>Purchase information (name, email, payment details), when you buy a product through Gumroad</li>
+        </ul>
+        <p>We do not collect any data automatically beyond standard server logs, and we do not use tracking cookies or behavioural analytics.</p>
+      </div>
+
+      <div class="policy-section">
+        <p class="policy-label">03</p>
+        <h2>How we use your data</h2>
+        <p>We use your personal data solely for the following purposes:</p>
+        <ul>
+          <li>To send you the Copper Room newsletter and free sample files, if you have subscribed</li>
+          <li>To respond to enquiries sent via email or the contact form</li>
+          <li>To process purchases made through our Gumroad store</li>
+        </ul>
+        <p>We will never sell, rent, or share your personal data with third parties for marketing purposes.</p>
+      </div>
+
+      <div class="policy-section">
+        <p class="policy-label">04</p>
+        <h2>Legal basis for processing</h2>
+        <p>Under the General Data Protection Regulation (GDPR), we process your data on the following legal bases:</p>
+        <ul>
+          <li><strong style="font-weight:400;color:var(--fg)">Consent</strong> — for newsletter subscriptions. You may withdraw consent at any time by unsubscribing.</li>
+          <li><strong style="font-weight:400;color:var(--fg)">Legitimate interests</strong> — for responding to direct enquiries.</li>
+          <li><strong style="font-weight:400;color:var(--fg)">Contract performance</strong> — for processing purchases.</li>
+        </ul>
+      </div>
+
+      <div class="policy-section">
+        <p class="policy-label">05</p>
+        <h2>Third-party services</h2>
+        <p>We use the following third-party services, each with their own privacy policies:</p>
+        <ul>
+          <li><strong style="font-weight:400;color:var(--fg)">Kit (formerly ConvertKit)</strong> — newsletter delivery and subscriber management. Data stored in the United States under Standard Contractual Clauses.</li>
+          <li><strong style="font-weight:400;color:var(--fg)">Gumroad</strong> — payment processing and digital product delivery. Data stored in the United States.</li>
+          <li><strong style="font-weight:400;color:var(--fg)">GitHub Pages</strong> — website hosting. No personal data is processed by GitHub as part of normal site visits.</li>
+        </ul>
+      </div>
+
+      <div class="policy-section">
+        <p class="policy-label">06</p>
+        <h2>Data retention</h2>
+        <p>We retain your data only for as long as necessary:</p>
+        <ul>
+          <li>Newsletter subscriber data is retained until you unsubscribe</li>
+          <li>Contact enquiry data is retained for up to 2 years</li>
+          <li>Purchase data is retained for 7 years in accordance with Portuguese tax law</li>
+        </ul>
+      </div>
+
+      <div class="policy-section">
+        <p class="policy-label">07</p>
+        <h2>Your rights</h2>
+        <p>Under GDPR, you have the following rights regarding your personal data:</p>
+        <ul>
+          <li>The right to access the data we hold about you</li>
+          <li>The right to correct inaccurate data</li>
+          <li>The right to erasure ("right to be forgotten")</li>
+          <li>The right to restrict or object to processing</li>
+          <li>The right to data portability</li>
+          <li>The right to withdraw consent at any time</li>
+        </ul>
+        <p>To exercise any of these rights, please contact us at <a href="mailto:hello@copperroom.studio">hello@copperroom.studio</a>. We will respond within 30 days.</p>
+        <p>You also have the right to lodge a complaint with the Portuguese data protection authority, the CNPD (<a href="https://www.cnpd.pt" target="_blank">www.cnpd.pt</a>).</p>
+      </div>
+
+      <div class="policy-section">
+        <p class="policy-label">08</p>
+        <h2>Cookies</h2>
+        <p>This website does not use cookies for tracking or analytics purposes. No cookie consent banner is required. Standard server logs may record your IP address and browser type for security and diagnostic purposes; these are not used for profiling.</p>
+      </div>
+
+      <div class="policy-section">
+        <p class="policy-label">09</p>
+        <h2>Changes to this policy</h2>
+        <p>We may update this policy from time to time. Any changes will be reflected on this page with an updated date. We encourage you to review this page periodically.</p>
+      </div>
+
+    </div>
+
+    <!-- PORTUGUESE -->
+    <div class="content" id="content-pt">
+
+      <div class="policy-section">
+        <p class="policy-label">01</p>
+        <h2>Quem somos</h2>
+        <p>O Copper Room é operado por João Bonifácio, com sede no Porto, Portugal. Para efeitos desta política, "nós", "nos" e "nosso" referem-se ao Copper Room.</p>
+        <p>Contacto: <a href="mailto:hello@copperroom.studio">hello@copperroom.studio</a></p>
+      </div>
+
+      <div class="policy-section">
+        <p class="policy-label">02</p>
+        <h2>Que dados recolhemos</h2>
+        <p>Recolhemos dados pessoais apenas quando nos são fornecidos activamente. Estes podem incluir:</p>
+        <ul>
+          <li>O seu endereço de e-mail, quando subscreve a nossa newsletter</li>
+          <li>O seu nome e endereço de e-mail, quando nos contacta através do formulário de contacto ou por e-mail</li>
+          <li>Informações de compra (nome, e-mail, dados de pagamento), quando adquire um produto através do Gumroad</li>
+        </ul>
+        <p>Não recolhemos dados automaticamente para além dos registos de servidor padrão, e não utilizamos cookies de rastreio ou análise comportamental.</p>
+      </div>
+
+      <div class="policy-section">
+        <p class="policy-label">03</p>
+        <h2>Como utilizamos os seus dados</h2>
+        <p>Utilizamos os seus dados pessoais exclusivamente para os seguintes fins:</p>
+        <ul>
+          <li>Para enviar a newsletter do Copper Room e ficheiros de amostras gratuitas, caso tenha subscrito</li>
+          <li>Para responder a pedidos enviados por e-mail ou através do formulário de contacto</li>
+          <li>Para processar compras efectuadas na nossa loja Gumroad</li>
+        </ul>
+        <p>Nunca venderemos, alugaremos ou partilharemos os seus dados pessoais com terceiros para fins de marketing.</p>
+      </div>
+
+      <div class="policy-section">
+        <p class="policy-label">04</p>
+        <h2>Base legal para o tratamento</h2>
+        <p>Ao abrigo do Regulamento Geral sobre a Protecção de Dados (RGPD), tratamos os seus dados com base nas seguintes bases legais:</p>
+        <ul>
+          <li><strong style="font-weight:400;color:var(--fg)">Consentimento</strong> — para subscrições de newsletter. Pode retirar o consentimento a qualquer momento através do cancelamento da subscrição.</li>
+          <li><strong style="font-weight:400;color:var(--fg)">Interesses legítimos</strong> — para responder a pedidos directos.</li>
+          <li><strong style="font-weight:400;color:var(--fg)">Execução de contrato</strong> — para processar compras.</li>
+        </ul>
+      </div>
+
+      <div class="policy-section">
+        <p class="policy-label">05</p>
+        <h2>Serviços de terceiros</h2>
+        <p>Utilizamos os seguintes serviços de terceiros, cada um com as suas próprias políticas de privacidade:</p>
+        <ul>
+          <li><strong style="font-weight:400;color:var(--fg)">Kit (anteriormente ConvertKit)</strong> — entrega de newsletters e gestão de subscritores. Dados armazenados nos Estados Unidos ao abrigo de Cláusulas Contratuais Padrão.</li>
+          <li><strong style="font-weight:400;color:var(--fg)">Gumroad</strong> — processamento de pagamentos e entrega de produtos digitais. Dados armazenados nos Estados Unidos.</li>
+          <li><strong style="font-weight:400;color:var(--fg)">GitHub Pages</strong> — alojamento do website. Nenhum dado pessoal é tratado pelo GitHub durante visitas normais ao site.</li>
+        </ul>
+      </div>
+
+      <div class="policy-section">
+        <p class="policy-label">06</p>
+        <h2>Retenção de dados</h2>
+        <p>Conservamos os seus dados apenas pelo tempo necessário:</p>
+        <ul>
+          <li>Os dados de subscritores da newsletter são conservados até ao cancelamento da subscrição</li>
+          <li>Os dados de pedidos de contacto são conservados por até 2 anos</li>
+          <li>Os dados de compras são conservados por 7 anos, em conformidade com a legislação fiscal portuguesa</li>
+        </ul>
+      </div>
+
+      <div class="policy-section">
+        <p class="policy-label">07</p>
+        <h2>Os seus direitos</h2>
+        <p>Ao abrigo do RGPD, tem os seguintes direitos relativamente aos seus dados pessoais:</p>
+        <ul>
+          <li>Direito de acesso aos dados que detemos sobre si</li>
+          <li>Direito de rectificação de dados inexactos</li>
+          <li>Direito ao apagamento ("direito a ser esquecido")</li>
+          <li>Direito de limitação ou oposição ao tratamento</li>
+          <li>Direito à portabilidade dos dados</li>
+          <li>Direito de retirar o consentimento a qualquer momento</li>
+        </ul>
+        <p>Para exercer qualquer um destes direitos, contacte-nos através de <a href="mailto:hello@copperroom.studio">hello@copperroom.studio</a>. Responderemos no prazo de 30 dias.</p>
+        <p>Tem também o direito de apresentar uma reclamação à autoridade portuguesa de protecção de dados, a CNPD (<a href="https://www.cnpd.pt" target="_blank">www.cnpd.pt</a>).</p>
+      </div>
+
+      <div class="policy-section">
+        <p class="policy-label">08</p>
+        <h2>Cookies</h2>
+        <p>Este website não utiliza cookies para fins de rastreio ou análise. Não é necessário apresentar um aviso de consentimento de cookies. Os registos de servidor padrão podem registar o seu endereço IP e tipo de navegador para fins de segurança e diagnóstico; estes não são utilizados para elaboração de perfis.</p>
+      </div>
+
+      <div class="policy-section">
+        <p class="policy-label">09</p>
+        <h2>Alterações a esta política</h2>
+        <p>Podemos actualizar esta política periodicamente. Quaisquer alterações serão reflectidas nesta página com uma data actualizada. Recomendamos que consulte esta página regularmente.</p>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<div class="nav-overlay" id="navOverlay">
+  <span class="nav-close" id="navClose">Close</span>
+  <a href="index.html#about">About</a>
+  <a href="copper-room-packs.html">Sound Packs</a>
+  <a href="index.html#services">Services</a>
+  <a href="copper-room-portfolio.html">Portfolio</a>
+  <a href="index.html#process">Process</a>
+  <a href="copper-room-studio.html">Studio</a>
+  <a href="index.html#newsletter">Newsletter</a>
+  <a href="index.html#contact">Contact</a>
+</div>
+
+<div class="fixed-bar">
+  <span class="tagline">Analogue sound design</span>
+  <div class="bar-socials">
+    <a href="https://instagram.com/bonifaciothecreator" target="_blank">Instagram</a>
+    <a href="https://youtube.com/@bonifaciothecreator" target="_blank">YouTube</a>
+  </div>
+</div>
+
+<script>
+  function setLang(lang) {
+    document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.lang-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById('content-' + lang).classList.add('active');
+    document.querySelector('[onclick="setLang(\'' + lang + '\')"]').classList.add('active');
+  }
+
+  const menuToggle = document.getElementById('menuToggle');
+  const navOverlay = document.getElementById('navOverlay');
+
+  navOverlay.classList.remove('open');
+  menuToggle.classList.remove('open');
+
+  function closeMenu() {
+    menuToggle.classList.remove('open');
+    navOverlay.classList.remove('open');
+  }
+
+  menuToggle.addEventListener('click', () => { menuToggle.classList.toggle('open'); navOverlay.classList.toggle('open'); });
+  menuToggle.addEventListener('touchend', (e) => { e.preventDefault(); menuToggle.classList.toggle('open'); navOverlay.classList.toggle('open'); });
+
+  const navClose = document.getElementById('navClose');
+  navClose.addEventListener('click', closeMenu);
+  navClose.addEventListener('touchend', (e) => { e.preventDefault(); closeMenu(); });
+
+  window.addEventListener('unload', () => {});
+  window.addEventListener('pageshow', () => { navOverlay.classList.remove('open'); menuToggle.classList.remove('open'); });
+
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const a = 3, b = 2;
+  let elapsed = 0, last = null;
+  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  function draw(ts) {
+    if (last === null) last = ts;
+    elapsed += ts - last; last = ts;
+    const W = canvas.width, H = canvas.height;
+    const cx = W * 0.5, cy = H * 0.5;
+    const R = Math.min(W, H) * 0.42;
+    const steps = 600;
+    const d = Math.sin(elapsed * 0.00016) * Math.PI;
+    ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, W, H);
+    ctx.beginPath();
+    for (let s = 0; s <= steps; s++) {
+      const angle = (s / steps) * Math.PI * 2;
+      const x = cx + R * Math.sin(a * angle + d + 0.3);
+      const y = cy + R * Math.sin(b * angle);
+      s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(232,228,220,0.05)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.beginPath();
+    for (let s = 0; s <= steps; s++) {
+      const angle = (s / steps) * Math.PI * 2;
+      const x = cx + R * Math.sin(a * angle + d);
+      const y = cy + R * Math.sin(b * angle);
+      s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(180,120,60,0.35)'; ctx.lineWidth = 1; ctx.stroke();
+    requestAnimationFrame(draw);
+  }
+  resize(); window.addEventListener('resize', resize); requestAnimationFrame(draw);
+</script>
+
+</body>
+</html>
