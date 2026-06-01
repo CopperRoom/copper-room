@@ -62,10 +62,20 @@
     .track-meta { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(232,228,220,0.2); text-align: right; }
     .track-tag { display: inline-block; font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; padding: 3px 8px; border: 0.5px solid rgba(180,120,60,0.3); color: var(--copper); margin-left: 0.8rem; }
 
+    /* EP SHOWCASE */
+    .ep-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; border-top: 0.5px solid var(--border); }
+    .ep { padding: 2.5rem 2rem 2.5rem 0; border-right: 0.5px solid var(--border); }
+    .ep:last-child { border-right: none; padding-left: 2rem; padding-right: 0; }
+    .ep-cover { width: 100%; max-width: 200px; aspect-ratio: 1; object-fit: cover; display: block; margin-bottom: 1.5rem; filter: brightness(0.9); }
+    .ep-num { font-size: 10px; letter-spacing: 0.2em; color: var(--copper); margin-bottom: 0.6rem; font-weight: 400; }
+    .ep-title { font-size: 20px; font-weight: 300; color: var(--fg); margin-bottom: 0.5rem; }
+    .ep-sub { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 1rem; }
+    .ep-year { font-size: 10px; letter-spacing: 0.15em; color: rgba(232,228,220,0.2); }
+
     /* TRACK COVER */
-    .track { grid-template-columns: 3rem 80px 1fr auto; }
-    .track-cover { width: 80px; height: 80px; object-fit: cover; display: block; filter: brightness(0.85); }
-    .track-cover-empty { width: 80px; height: 80px; background: transparent; }
+    .track { grid-template-columns: 3rem 1fr auto; }
+    .track-cover { display: none; }
+    .track-cover-empty { display: none; }
     .client-grid { display: grid; grid-template-columns: repeat(2, 1fr); border-top: 0.5px solid var(--border); }
     .client {
       padding: 2.5rem 2rem 2.5rem 0;
@@ -112,34 +122,41 @@
       <h1>Portfolio</h1>
     </div>
 
-    <!-- SELECTED TRACKS -->
+    <!-- EP SHOWCASE -->
     <div class="section solid">
-      <p class="label">Selected Tracks & Releases</p>
+      <p class="label">Releases</p>
+      <div class="ep-grid">
+
+        <div class="ep">
+          <img class="ep-cover" src="lockdown.jpg" alt="Lockdown Tapes">
+          <div class="ep-info">
+            <p class="ep-num">001</p>
+            <h3 class="ep-title">Lockdown Tapes</h3>
+            <p class="ep-sub">Original compositions — synthesis, arrangement, production</p>
+            <span class="ep-year">2022</span>
+          </div>
+        </div>
+
+        <div class="ep">
+          <img class="ep-cover" src="hanami.jpg" alt="Hanami">
+          <div class="ep-info">
+            <p class="ep-num">002</p>
+            <h3 class="ep-title">Hanami</h3>
+            <p class="ep-sub">Original compositions — synthesis, arrangement, production</p>
+            <span class="ep-year">2020</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- SELECTED TRACKS -->
+    <div class="section transparent">
+      <p class="label">Selected Tracks</p>
       <div class="track-list">
 
         <div class="track">
           <span class="track-num">01</span>
-          <img class="track-cover" src="lockdown.jpg" alt="Lockdown Tapes">
-          <div class="track-info">
-            <h3>Lockdown Tapes <span class="track-tag">EP</span></h3>
-            <p>Original compositions — synthesis, arrangement, production</p>
-          </div>
-          <div class="track-meta">2022</div>
-        </div>
-
-        <div class="track">
-          <span class="track-num">02</span>
-          <img class="track-cover" src="hanami.jpg" alt="Hanami">
-          <div class="track-info">
-            <h3>Hanami <span class="track-tag">EP</span></h3>
-            <p>Original compositions — synthesis, arrangement, production</p>
-          </div>
-          <div class="track-meta">2020</div>
-        </div>
-
-        <div class="track">
-          <span class="track-num">03</span>
-          <div class="track-cover-empty"></div>
           <div class="track-info">
             <h3>The Saloon Is Past Saturn</h3>
             <p>Moog Subsequent 37 — live improvisation</p>
@@ -148,8 +165,7 @@
         </div>
 
         <div class="track">
-          <span class="track-num">04</span>
-          <div class="track-cover-empty"></div>
+          <span class="track-num">02</span>
           <div class="track-info">
             <h3>TenTen <span class="track-tag">In progress</span></h3>
             <p>With Pedro Petiz — production, arrangement</p>
