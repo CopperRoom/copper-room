@@ -8,7 +8,7 @@ exports.handler = async (event) => {
   const response = await fetch('https://api.buttondown.email/v1/subscribers', {
     method: 'POST',
     headers: {
-      'Authorization': 'Token 0d82a721-c769-4d19-9532-221de1904c4b',
+      'Authorization': `Token ${process.env.BUTTONDOWN_API_KEY}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({ email })
