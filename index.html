@@ -342,16 +342,12 @@
         <h3>Join the list</h3>
         <p>A free sample file with every issue. Recordings from the studio, notes on the process, and occasional thoughts on analogue sound. No schedule, no filler — just signal.</p>
       </div>
-      <form action="https://buttondown.com/api/emails/embed-subscribe/copperroom" method="post" target="bd-iframe" id="bd-form">
+      <form action="https://buttondown.com/api/emails/embed-subscribe/copperroom" method="post" target="_blank">
         <div class="email-row">
           <input type="email" name="email" placeholder="your@email.com" required>
           <button type="submit">Subscribe</button>
         </div>
       </form>
-      <iframe name="bd-iframe" style="display:none;" aria-hidden="true"></iframe>
-      <div id="newsletter-success" style="display:none;">
-        <p style="font-size:13px;color:rgba(232,228,220,0.5);line-height:1.9;">You're in — check your inbox to confirm your subscription.</p>
-      </div>
     </div>
 
     <div class="section solid" id="contact">
@@ -524,17 +520,6 @@
     requestAnimationFrame(draw);
   }
   resize(); window.addEventListener('resize', resize); requestAnimationFrame(draw);
-
-  // Newsletter form
-  const bdForm = document.getElementById('bd-form');
-  if (bdForm) {
-    bdForm.addEventListener('submit', () => {
-      setTimeout(() => {
-        bdForm.style.display = 'none';
-        document.getElementById('newsletter-success').style.display = 'block';
-      }, 2000);
-    });
-  }
 
   // Contact form
   const form = document.querySelector('form[name="contact"]');
