@@ -119,64 +119,27 @@
     .fixed-bar .bar-socials a { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); text-decoration: none; cursor: pointer; transition: color 0.2s; }
     .fixed-bar .bar-socials a:hover { color: var(--fg); }
 
-
     /* CONTACT FORM */
     .contact-form { margin-top: 3rem; border-top: 0.5px solid var(--border); padding-top: 3rem; max-width: 600px; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
     .form-field { display: flex; flex-direction: column; gap: 0.5rem; }
     .form-field.full { grid-column: span 2; }
     .form-field label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); }
-    .form-field input,
-    .form-field select,
-    .form-field textarea {
-      background: transparent;
-      border: none;
-      border-bottom: 0.5px solid rgba(232,228,220,0.2);
-      outline: none;
-      padding: 0.6rem 0;
-      font-size: 13px;
-      color: var(--fg);
-      font-family: 'Inter', sans-serif;
-      font-weight: 300;
-      transition: border-color 0.2s;
-      -webkit-appearance: none;
-      appearance: none;
-      border-radius: 0;
-    }
-    .form-field input:focus,
-    .form-field select:focus,
-    .form-field textarea:focus { border-bottom-color: var(--copper); }
-    .form-field input::placeholder,
-    .form-field textarea::placeholder { color: rgba(232,228,220,0.2); }
+    .form-field input, .form-field select, .form-field textarea { background: transparent; border: none; border-bottom: 0.5px solid rgba(232,228,220,0.2); outline: none; padding: 0.6rem 0; font-size: 13px; color: var(--fg); font-family: 'Inter', sans-serif; font-weight: 300; transition: border-color 0.2s; -webkit-appearance: none; appearance: none; border-radius: 0; }
+    .form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-bottom-color: var(--copper); }
+    .form-field input::placeholder, .form-field textarea::placeholder { color: rgba(232,228,220,0.2); }
     .form-field select { cursor: pointer; color: rgba(232,228,220,0.5); }
     .form-field select option { background: #1a1a1a; color: var(--fg); }
     .form-field textarea { resize: none; min-height: 100px; }
-    .form-submit {
-      margin-top: 2rem;
-      font-size: 9px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: var(--bg);
-      background: var(--copper);
-      border: none;
-      padding: 0.85rem 2rem;
-      cursor: pointer;
-      font-family: 'Inter', sans-serif;
-      font-weight: 400;
-      transition: opacity 0.2s;
-    }
+    .form-submit { margin-top: 2rem; font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--bg); background: var(--copper); border: none; padding: 0.85rem 2rem; cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 400; transition: opacity 0.2s; }
     .form-submit:hover { opacity: 0.8; }
+    .form-success { display: none; padding: 3rem 0; }
+    .form-success h3 { font-size: 20px; font-weight: 300; color: var(--fg); margin-bottom: 0.8rem; }
+    .form-success p { font-size: 13px; color: rgba(232,228,220,0.5); line-height: 1.9; }
     @media (max-width: 768px) {
       .form-row { grid-template-columns: 1fr; }
       .form-field.full { grid-column: span 1; }
     }
-
-
-    .form-success { display: none; padding: 3rem 0; }
-    .form-success h3 { font-size: 20px; font-weight: 300; color: var(--fg); margin-bottom: 0.8rem; }
-    .form-success p { font-size: 13px; color: rgba(232,228,220,0.5); line-height: 1.9; }
-
-
 
     /* NAV OVERLAY */
     .nav-overlay { display: none !important; }
@@ -322,7 +285,7 @@
           <p class="service-num">06</p>
           <p class="service-title">Sound Design</p>
           <p class="service-desc">Custom sonic identities, textures, and effects for brands, installations, games, and moving image. Built from hardware — no presets, no shortcuts.</p>
-</div>
+        </div>
       </div>
     </div>
 
@@ -347,14 +310,17 @@
         <h3>Join the list</h3>
         <p>A free sample file with every issue. Recordings from the studio, notes on the process, and occasional thoughts on analogue sound. No schedule, no filler — just signal.</p>
       </div>
-      <form action="https://buttondown.com/api/emails/embed-subscribe/copperroom" method="post" target="_blank" id="bd-form">
+      <form id="bd-form" action="https://5be2ff2c.sibforms.com/serve/MUIFAPYCa2Jq5SgdNRzi57_lMHj5da7xY0XewkCRL9cxyhRDZmIQOPo0FMUdDIOACqzkiay8u1pmOxYHQo48WP_ZJ0vWoFEGiOhlGmZJisLnOIHq6jxNNmJ9ILMprJuKeolSrV8NEMpn7GT8h-mqJGJwNrpxFb0CRvw8I4rzcoqY3p5KDmghr-aJt9a4VVLKvKjN4_jGtomBqcybMg==" method="POST" target="brevo-iframe">
+        <input type="hidden" name="locale" value="en">
+        <input type="text" name="email_address_check" value="" style="display:none;">
         <div class="email-row">
-          <input type="email" name="email" placeholder="your@email.com" required>
+          <input type="email" name="EMAIL" placeholder="your@email.com" required>
           <button type="submit">Subscribe</button>
         </div>
       </form>
+      <iframe name="brevo-iframe" style="display:none;" aria-hidden="true"></iframe>
       <div id="newsletter-success" style="display:none;">
-        <p style="font-size:13px;color:rgba(232,228,220,0.5);line-height:1.9;">Check the new tab to complete your subscription.</p>
+        <p style="font-size:13px;color:rgba(232,228,220,0.5);line-height:1.9;">Check your inbox to confirm your subscription.</p>
       </div>
     </div>
 
