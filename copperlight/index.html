@@ -19,10 +19,10 @@ nav{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;
 .nav-overlay{display:none;position:fixed;inset:0;background:var(--bg);z-index:100;flex-direction:column;justify-content:center;align-items:flex-end;padding:3rem 2rem;text-align:right}
 .nav-overlay.open{display:flex}.nav-overlay a{font-size:26px;padding:.35rem 0;letter-spacing:.02em;color:var(--fg);text-decoration:none}.nav-overlay a.active{color:var(--copper)}
 .nav-close{position:absolute;top:1.8rem;right:1.8rem;font-size:8px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);background:none;border:0;cursor:pointer;font-family:inherit;font-weight:300}
-.hero{min-height:88vh;display:flex;flex-direction:column;justify-content:flex-end;padding:2rem 2.5rem 4rem;margin-top:-6rem}
+.hero{padding:11rem 2.5rem 4rem;margin-top:-6rem}
 .label{font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:var(--muted);margin-bottom:3rem}
-.hero .label{margin-bottom:1.5rem}
-h1{font-size:clamp(3rem,9vw,7.5rem);font-weight:300;line-height:1;letter-spacing:-.02em;margin-bottom:2rem}
+.hero .label{margin-bottom:2rem}
+h1{font-size:clamp(3rem,9vw,7.5rem);font-weight:300;line-height:1;letter-spacing:-.02em;margin-bottom:1.25rem}
 h1 sup{font-size:.2em;letter-spacing:.1em;color:var(--copper);font-weight:400;vertical-align:top;position:relative;top:.7em;margin-left:.6em}
 .hero p.lead{font-size:14px;line-height:1.9;color:rgba(232,228,220,.55);max-width:440px;margin-bottom:2.5rem}
 .cta{display:flex;gap:2rem;flex-wrap:wrap;align-items:center}
@@ -51,7 +51,7 @@ h1 sup{font-size:.2em;letter-spacing:.1em;color:var(--copper);font-weight:400;ve
 .bar-socials{display:flex;gap:1.2rem}.bar-socials a{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);text-decoration:none;transition:color .2s}.bar-socials a:hover{color:var(--fg)}
 @media(max-width:768px){
 nav{padding:1.5rem;align-items:center}.nav-links{display:none}.menu-toggle{display:flex}
-.hero{padding:1.5rem 1.5rem 3rem;margin-top:-5rem;min-height:80vh}.section{padding:3rem 1.5rem}
+.hero{padding:8rem 1.5rem 3rem;margin-top:-5rem}.section{padding:3rem 1.5rem}
 .grid3,.two{grid-template-columns:1fr}.cell,.cell:nth-child(3n),.cell:nth-child(3n+2){padding:2rem 0;border-right:none;border-bottom:.5px solid var(--border)}.cell:last-child{border-bottom:none}.cell:nth-last-child(-n+3){border-bottom:.5px solid var(--border)}.cell:last-child{border-bottom:none}
 .two>div,.two>div:last-child{padding:2rem 0;border-right:none}.two>div:first-child{border-bottom:.5px solid var(--border)}
 .footer-inner{padding:2rem 1.5rem 0}.fixed-bar{padding:1rem 1.5rem}.fixed-bar .tagline{display:none}}
@@ -59,8 +59,9 @@ nav{padding:1.5rem;align-items:center}.nav-links{display:none}.menu-toggle{displ
 <nav><a class="wordmark" href="https://copperroom.studio/">Copper Room</a><div class="nav-links"><a href="https://copperroom.studio/copper-room-packs.html">Sound Packs</a><a href="https://copperroom.studio/copper-room-portfolio.html">Portfolio</a><a href="https://copperroom.studio/copper-room-studio.html">Studio</a><a href="./" class="active">Copperlight</a></div>
 <button class="menu-toggle" aria-label="Menu" onclick="document.getElementById('ov').classList.add('open')"><span></span><span></span><span></span></button></nav>
 <div class="nav-overlay" id="ov"><button class="nav-close" onclick="document.getElementById('ov').classList.remove('open')">Close</button><a href="https://copperroom.studio/copper-room-packs.html">Sound Packs</a><a href="https://copperroom.studio/copper-room-portfolio.html">Portfolio</a><a href="https://copperroom.studio/copper-room-studio.html">Studio</a><a href="./" class="active">Copperlight</a></div>
-<div class="hero"><div class="label">By Copper Room</div>
+<div class="hero">
 <h1>Copperlight<sup>v1.0</sup></h1>
+<div class="label">By Copper Room</div>
 <p class="lead">Audio-reactive visuals for live sets. It listens to your music and turns every kick, snare and hi-hat into moving picture, and it runs entirely offline from one file.</p>
 <div class="cta"><a class="btn" href="app/">Launch in browser</a><a class="copper-link" href="download/copperlight-v1.0.html" download="copperlight-v1.html">Download · HTML · 490 KB</a><a class="copper-link" href="manual/">Manual</a></div>
 <p class="note">Works in current Chrome and Edge. Free.</p></div>
