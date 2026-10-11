@@ -1273,7 +1273,7 @@ async function useSystemAudio(){
   try {
     const stream = await navigator.mediaDevices.getDisplayMedia({video:true, audio:true});
     const at = stream.getAudioTracks(); stream.getVideoTracks().forEach(t=>t.stop());
-    if (!at.length){ stream.getTracks().forEach(t=>t.stop()); setAudioStatus('No audio came through that share — use Chrome/Edge and tick "share audio".'); return; }
+    if (!at.length){ stream.getTracks().forEach(t=>t.stop()); setAudioStatus('No audio came through that share — use Chrome or Opera and tick "share audio".'); return; }
     stopDisplayStream(); displayStream = stream;
     connectSource(audioCtx.createMediaStreamSource(stream)); ui.setSrc('sys');
     setAudioStatus('System/tab audio connected ('+(at[0].label||'shared audio')+').'); ui.fileRow.style.display = 'none';
@@ -2527,7 +2527,7 @@ function renderMidiDevices(inputs){
   });
 }
 function enableMidi(){
-  if (!navigator.requestMIDIAccess){ setMidiStatus('Web MIDI is not supported in this browser (use Chrome or Edge).'); return; }
+  if (!navigator.requestMIDIAccess){ setMidiStatus('Web MIDI is not supported in this browser (use Chrome or Opera).'); return; }
   navigator.requestMIDIAccess().then(acc => { midiAccess = acc; lsSet(MIDION_KEY, '1'); acc.onstatechange = refreshMidiInputs; ui.midiEnable.style.display = 'none'; setMidiStatus('MIDI on.'); ui.setDot('midi', true); refreshMidiInputs(); })
     .catch(err => setMidiStatus('MIDI access denied: '+err.message));
 }
