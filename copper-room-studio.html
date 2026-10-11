@@ -30,6 +30,8 @@
     .nav-links { text-align: right; line-height: 1.6; pointer-events: all; }
     .nav-links a { display: block; font-size: 22px; font-weight: 300; letter-spacing: 0.04em; color: var(--fg); text-decoration: none; cursor: pointer; transition: opacity 0.2s, color 0.2s; }
     .nav-links a:hover { opacity: 0.4; }
+    .nav-divider { width: 32px; height: 0; border-top: 0.5px solid rgba(232,228,220,0.25); margin: 1.1rem 0 0.9rem auto; }
+    .nav-group { display: block; font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--muted); line-height: 1; margin-bottom: 0.7rem; }
     .nav-links a.current { color: var(--copper); opacity: 1; }
 
     /* hamburger */
@@ -97,6 +99,8 @@
       }
       .nav-overlay.open { display: flex !important; }
       .nav-overlay a { display: block; font-size: 26px; font-weight: 300; font-family: 'Inter', sans-serif; padding: 0.35rem 0; letter-spacing: 0.02em; color: var(--fg); text-decoration: none; pointer-events: all; }
+      .nav-overlay .nav-divider { margin: 1.2rem 0 1rem auto; }
+      .nav-overlay .nav-group { font-size: 9px; padding: 0 0 0.4rem; }
       .nav-overlay a:hover { opacity: 0.4; }
       .nav-close { position: absolute; top: 1.8rem; right: 1.8rem; font-size: 8px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); cursor: pointer; pointer-events: all; font-family: 'Inter', sans-serif; font-weight: 300; }
       .page-header { padding: 3rem 1.5rem 0; }
@@ -130,6 +134,9 @@
         <a href="copper-room-studio.html" class="current">Studio</a>
         <a href="index.html#newsletter">The List</a>
         <a href="index.html#contact">Contact</a>
+        <div class="nav-divider"></div>
+        <span class="nav-group">Apps</span>
+        <a href="copperlight/">Copperlight</a>
       </div>
       <button class="menu-toggle" id="menuToggle" aria-label="Menu">
         <span></span><span></span><span></span>
@@ -320,8 +327,11 @@
   <a href="copper-room-portfolio.html">Portfolio</a>
   <a href="index.html#process">Process</a>
   <a href="copper-room-studio.html" class="current">Studio</a>
-  <a href="index.html#newsletter">Newsletter</a>
+  <a href="index.html#newsletter">The List</a>
   <a href="index.html#contact">Contact</a>
+  <div class="nav-divider"></div>
+  <span class="nav-group">Apps</span>
+  <a href="copperlight/">Copperlight</a>
 </div>
 
 <div class="fixed-bar">
