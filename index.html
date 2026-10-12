@@ -51,14 +51,14 @@
     .transparent { background: transparent; }
 
     .section { padding: 5rem 2.5rem; border-top: 0.5px solid var(--border); }
-    .label { font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--muted); margin-bottom: 3rem; }
-    .copper-link { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--copper); text-decoration: none; border-bottom: 0.5px solid rgba(180,120,60,0.3); padding-bottom: 2px; cursor: pointer; transition: border-color 0.2s; }
+    .label { font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(232,228,220,0.55); margin-bottom: 3rem; font-weight: 400; }
+    .copper-link { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--copper); text-decoration: none; border-bottom: 0.5px solid rgba(180,120,60,0.3); padding-bottom: 2px; cursor: pointer; transition: border-color 0.2s; font-weight: 400; }
     .copper-link:hover { border-color: var(--copper); }
-    .highlight { color: var(--copper); font-weight: 300; }
+    .highlight { color: var(--copper); font-weight: 400; }
 
     /* INTRO */
     .intro h2 { font-size: clamp(2rem, 4vw, 3.2rem); font-weight: 300; line-height: 1.15; letter-spacing: -0.01em; max-width: 560px; margin-bottom: 2rem; }
-    .intro p { font-size: 14px; line-height: 1.9; color: rgba(232,228,220,0.55); max-width: 420px; }
+    .intro p { font-size: 14px; line-height: 1.9; color: rgba(232,228,220,0.70); max-width: 420px; font-weight: 400; }
 
     /* SOUND PACKS */
     .releases-grid { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 0.5px solid var(--border); }
@@ -67,8 +67,8 @@
     .release:not(:first-child) { padding-left: 2rem; }
     .release-num { font-size: 10px; letter-spacing: 0.2em; color: var(--copper); margin-bottom: 1.2rem; font-weight: 400; }
     .release-title { font-size: 18px; font-weight: 300; color: var(--fg); margin-bottom: 0.5rem; line-height: 1.2; }
-    .release-sub { font-size: 12px; color: var(--muted); margin-bottom: 2rem; line-height: 1.6; }
-    .release-tag { display: inline-block; font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; padding: 4px 10px; border: 0.5px solid var(--border); color: var(--muted); }
+    .release-sub { font-size: 12px; color: rgba(232,228,220,0.70); margin-bottom: 2rem; line-height: 1.6; font-weight: 400; }
+    .release-tag { display: inline-block; font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; padding: 4px 10px; border: 0.5px solid var(--border); color: rgba(232,228,220,0.55); font-weight: 400; }
     .release-tag.available { border-color: rgba(180,120,60,0.3); color: var(--copper); }
 
     /* SERVICES */
@@ -76,9 +76,9 @@
     .service { padding: 2.5rem 2rem 2.5rem 0; border-right: 0.5px solid var(--border); border-bottom: 0.5px solid var(--border); }
     .service:nth-child(even) { border-right: none; padding-left: 2rem; padding-right: 0; }
     .service:nth-last-child(-n+2) { border-bottom: none; }
-    .service-num { font-size: 10px; letter-spacing: 0.2em; color: var(--muted); margin-bottom: 1.2rem; font-weight: 400; }
+    .service-num { font-size: 10px; letter-spacing: 0.2em; color: rgba(232,228,220,0.55); margin-bottom: 1.2rem; font-weight: 400; }
     .service-title { font-size: 24px; font-weight: 300; color: var(--fg); line-height: 1.1; margin-bottom: 1.2rem; }
-    .service-desc { font-size: 12px; line-height: 1.85; color: rgba(232,228,220,0.45); }
+    .service-desc { font-size: 12px; line-height: 1.85; color: rgba(232,228,220,0.70); font-weight: 400; }
 
     /* PROCESS */
     .process-grid { display: grid; grid-template-columns: 1fr 1fr; border-top: 0.5px solid var(--border); }
@@ -86,40 +86,40 @@
     .process-col:first-child { padding-right: 3rem; border-right: 0.5px solid var(--border); }
     .process-col:last-child { padding-left: 3rem; }
     .process-col h3 { font-size: 20px; font-weight: 300; color: var(--fg); margin-bottom: 1rem; line-height: 1.2; }
-    .process-col p { font-size: 13px; line-height: 1.9; color: rgba(232,228,220,0.5); margin-bottom: 1.5rem; }
+    .process-col p { font-size: 13px; line-height: 1.9; color: rgba(232,228,220,0.55); margin-bottom: 1.5rem; font-weight: 400; }
 
     /* ABOUT */
     .about-grid { display: grid; grid-template-columns: 1fr 1fr; border-top: 0.5px solid var(--border); }
     .about-left { padding: 3rem 3rem 3rem 0; border-right: 0.5px solid var(--border); }
     .about-right { padding: 3rem 0 3rem 3rem; display: flex; flex-direction: column; justify-content: flex-end; }
     .about-left h2 { font-size: clamp(1.6rem, 2.5vw, 2.2rem); font-weight: 300; line-height: 1.2; margin-bottom: 2rem; }
-    .about-left p, .about-right p { font-size: 13px; line-height: 1.95; color: rgba(232,228,220,0.5); margin-bottom: 1.2rem; }
+    .about-left p, .about-right p { font-size: 13px; line-height: 1.95; color: rgba(232,228,220,0.55); margin-bottom: 1.2rem; font-weight: 400; }
 
     /* NEWSLETTER */
     .newsletter { border-bottom: 0.5px solid var(--border); display: flex; flex-direction: column; gap: 2rem; }
     .newsletter h3 { font-size: 24px; font-weight: 300; color: var(--fg); margin-bottom: 0.5rem; }
-    .newsletter p { font-size: 12px; color: var(--muted); line-height: 1.7; }
+    .newsletter p { font-size: 12px; color: rgba(232,228,220,0.55); line-height: 1.7; font-weight: 400; }
     .email-row { display: flex; border: 0.5px solid rgba(232,228,220,0.2); max-width: 480px; }
-    .email-row input { background: transparent; border: none; outline: none; padding: 0.85rem 1rem; font-size: 12px; color: var(--fg); font-family: 'Inter', sans-serif; font-weight: 300; flex: 1; }
-    .email-row input::placeholder { color: rgba(232,228,220,0.2); }
+    .email-row input { background: transparent; border: none; outline: none; padding: 0.85rem 1rem; font-size: 12px; color: var(--fg); font-family: 'Inter', sans-serif; font-weight: 400; flex: 1; }
+    .email-row input::placeholder { color: rgba(232,228,220,0.55); }
     .email-row button { background: rgba(180,120,60,0.12); border: none; border-left: 0.5px solid rgba(232,228,220,0.2); padding: 0.85rem 1.4rem; font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--copper); cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 400; transition: background 0.2s; white-space: nowrap; }
     .email-row button:hover { background: rgba(180,120,60,0.22); }
 
     /* CONTACT */
     .contact-inner { display: flex; flex-direction: column; gap: 1.5rem; }
     .contact-inner h2 { font-size: clamp(1.8rem, 3vw, 2.8rem); font-weight: 300; line-height: 1.1; }
-    .contact-inner a { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--copper); text-decoration: none; border-bottom: 0.5px solid rgba(180,120,60,0.3); padding-bottom: 2px; align-self: flex-start; }
+    .contact-inner a { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--copper); text-decoration: none; border-bottom: 0.5px solid rgba(180,120,60,0.3); padding-bottom: 2px; align-self: flex-start; font-weight: 400; }
     .footer-inner { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem; border-top: 0.5px solid var(--border); padding-top: 2rem; margin-top: 2rem; }
-    .footer-info { font-size: 10px; letter-spacing: 0.06em; color: rgba(232,228,220,0.18); line-height: 2; }
+    .footer-info { font-size: 10px; letter-spacing: 0.06em; color: rgba(232,228,220,0.40); line-height: 2; font-weight: 400; }
     .footer-links { display: flex; gap: 1.5rem; }
-    .footer-links a { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(232,228,220,0.2); text-decoration: none; cursor: pointer; transition: color 0.2s; }
+    .footer-links a { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(232,228,220,0.40); text-decoration: none; cursor: pointer; transition: color 0.2s; font-weight: 400; }
     .footer-links a:hover { color: rgba(232,228,220,0.6); }
 
     /* FIXED FOOTER BAR */
     .fixed-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 2.5rem; background: var(--bg); border-top: 0.5px solid var(--border); pointer-events: none; }
-    .fixed-bar .tagline { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+    .fixed-bar .tagline { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(232,228,220,0.55); font-weight: 400; }
     .fixed-bar .bar-socials { display: flex; gap: 1.2rem; pointer-events: all; }
-    .fixed-bar .bar-socials a { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); text-decoration: none; cursor: pointer; transition: color 0.2s; }
+    .fixed-bar .bar-socials a { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(232,228,220,0.40); text-decoration: none; cursor: pointer; transition: color 0.2s; font-weight: 400; }
     .fixed-bar .bar-socials a:hover { color: var(--fg); }
 
     /* CONTACT FORM */
@@ -127,11 +127,11 @@
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
     .form-field { display: flex; flex-direction: column; gap: 0.5rem; }
     .form-field.full { grid-column: span 2; }
-    .form-field label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); }
-    .form-field input, .form-field select, .form-field textarea { background: transparent; border: none; border-bottom: 0.5px solid rgba(232,228,220,0.2); outline: none; padding: 0.6rem 0; font-size: 13px; color: var(--fg); font-family: 'Inter', sans-serif; font-weight: 300; transition: border-color 0.2s; -webkit-appearance: none; appearance: none; border-radius: 0; }
+    .form-field label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(232,228,220,0.55); font-weight: 400; }
+    .form-field input, .form-field select, .form-field textarea { background: transparent; border: none; border-bottom: 0.5px solid rgba(232,228,220,0.2); outline: none; padding: 0.6rem 0; font-size: 13px; color: var(--fg); font-family: 'Inter', sans-serif; font-weight: 400; transition: border-color 0.2s; -webkit-appearance: none; appearance: none; border-radius: 0; }
     .form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-bottom-color: var(--copper); }
-    .form-field input::placeholder, .form-field textarea::placeholder { color: rgba(232,228,220,0.2); }
-    .form-field select { cursor: pointer; color: rgba(232,228,220,0.5); }
+    .form-field input::placeholder, .form-field textarea::placeholder { color: rgba(232,228,220,0.55); }
+    .form-field select { cursor: pointer; color: rgba(232,228,220,0.55); }
     .form-field select option { background: #1a1a1a; color: var(--fg); }
     .form-field textarea { resize: none; min-height: 100px; }
     .form-submit { margin-top: 2rem; font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--bg); background: var(--copper); border: none; padding: 0.85rem 2rem; cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 400; transition: opacity 0.2s; }
@@ -296,7 +296,7 @@
 
     <div class="section solid" id="process">
       <p class="label">Process</p>
-      <p style="font-size:13px;color:rgba(232,228,220,0.25);letter-spacing:0.08em;margin-bottom:3rem;font-style:italic;">Every signal that leaves here has passed through copper.</p>
+      <p style="font-size:13px;color:rgba(232,228,220,0.55);font-weight:400;letter-spacing:0.08em;margin-bottom:3rem;font-style:italic;">Every signal that leaves here has passed through copper.</p>
       <div class="process-grid">
         <div class="process-col">
           <h3>Made with<br>hardware</h3>
@@ -326,7 +326,7 @@
       </form>
       <iframe name="brevo-iframe" style="display:none;" aria-hidden="true"></iframe>
       <div id="newsletter-success" style="display:none;">
-        <p style="font-size:13px;color:rgba(232,228,220,0.5);line-height:1.9;">Check your inbox to confirm your subscription.</p>
+        <p style="font-size:13px;color:rgba(232,228,220,0.55);font-weight:400;line-height:1.9;">Check your inbox to confirm your subscription.</p>
       </div>
     </div>
 
@@ -371,10 +371,10 @@
             </div>
           </div>
           <button type="submit" class="form-submit">Send message</button>
-          <p id="contact-error" role="alert" style="display:none; margin-top:1.5rem; font-size:13px; color:rgba(232,228,220,0.5); line-height:1.9;">Something went wrong and your message wasn't sent. Please try again, or email <a href="mailto:hello@copperroom.studio" style="color:var(--copper);">hello@copperroom.studio</a>.</p>
+          <p id="contact-error" role="alert" style="display:none; margin-top:1.5rem; font-size:13px; color:rgba(232,228,220,0.55); font-weight:400; line-height:1.9;">Something went wrong and your message wasn't sent. Please try again, or email <a href="mailto:hello@copperroom.studio" style="color:var(--copper);">hello@copperroom.studio</a>.</p>
         </form>
         <div id="contact-success" style="display:none; padding: 2rem 0;">
-          <p style="font-size:13px;color:rgba(232,228,220,0.5);line-height:1.9;">Message sent — I'll be in touch shortly.</p>
+          <p style="font-size:13px;color:rgba(232,228,220,0.55);font-weight:400;line-height:1.9;">Message sent — I'll be in touch shortly.</p>
         </div>
       </div>
       <div class="footer-inner">

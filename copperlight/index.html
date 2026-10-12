@@ -21,22 +21,23 @@ nav{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;
 .nav-close{position:absolute;top:1.8rem;right:1.8rem;font-size:8px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);background:none;border:0;cursor:pointer;font-family:inherit;font-weight:300}
 .hero{padding:11rem 2.5rem 4rem;margin-top:-6rem}
 .label{font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:var(--muted);margin-bottom:3rem}
-.hero .label{margin-bottom:2rem}
+.hero .label{margin-bottom:2rem;color:rgba(232,228,220,.55);font-weight:400;-webkit-font-smoothing:auto}
+.section .label{color:rgba(232,228,220,.55);font-weight:400}
 h1{font-size:clamp(3rem,9vw,7.5rem);font-weight:300;line-height:1;letter-spacing:-.02em;margin-bottom:1.25rem}
 h1 sup{font-size:.2em;letter-spacing:.1em;color:var(--copper);font-weight:400;vertical-align:top;position:relative;top:.7em;margin-left:.6em}
-.hero p.lead{font-size:14px;line-height:1.9;color:rgba(232,228,220,.55);max-width:440px;margin-bottom:2.5rem}
+.hero p.lead{font-size:14px;line-height:1.9;color:rgba(232,228,220,.7);font-weight:400;max-width:440px;margin-bottom:2.5rem}
 .cta{display:flex;gap:2rem;flex-wrap:wrap;align-items:center}
-.copper-link{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--copper);text-decoration:none;border-bottom:.5px solid rgba(180,120,60,.3);padding-bottom:2px;transition:border-color .2s}
+.copper-link{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--copper);text-decoration:none;border-bottom:.5px solid rgba(180,120,60,.3);padding-bottom:2px;transition:border-color .2s;font-weight:400}
 .copper-link:hover{border-color:var(--copper)}
 .btn{display:inline-block;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--bg);background:var(--copper);padding:.95rem 2rem;text-decoration:none;font-weight:400;transition:opacity .2s}.btn:hover{opacity:.8}
-.note{margin-top:1.8rem;font-size:11px;letter-spacing:.04em;color:var(--muted)}.note a{color:var(--muted)}.note a:hover{color:var(--fg)}
+.note{margin-top:1.8rem;font-size:11px;letter-spacing:.04em;color:rgba(232,228,220,.55);font-weight:400}.note a{color:rgba(232,228,220,.55)}.note a:hover{color:var(--fg)}
 .section{padding:5rem 2.5rem;border-top:.5px solid var(--border)}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);border-top:.5px solid var(--border)}
 .cell{padding:2.5rem 2rem 2.5rem 0;border-right:.5px solid var(--border);border-bottom:.5px solid var(--border)}
 .cell:nth-child(3n){border-right:none}.cell:nth-child(3n+2),.cell:nth-child(3n){padding-left:2rem}.cell:nth-last-child(-n+3){border-bottom:none}
 .num{font-size:10px;letter-spacing:.2em;color:var(--copper);margin-bottom:1.2rem;font-weight:400}
 .cell h3{font-size:18px;font-weight:300;line-height:1.2;margin-bottom:.8rem}
-.cell p{font-size:12px;line-height:1.85;color:rgba(232,228,220,.45)}
+.cell p{font-size:12px;line-height:1.85;color:rgba(232,228,220,.7);font-weight:400}
 .two{display:grid;grid-template-columns:1fr 1fr;border-top:.5px solid var(--border)}
 .two>div{padding:3rem 3rem 3rem 0;border-right:.5px solid var(--border)}.two>div:last-child{padding:3rem 0 3rem 3rem;border-right:none}
 .two h3{font-size:20px;font-weight:300;line-height:1.2;margin-bottom:1rem}
@@ -44,13 +45,14 @@ h1 sup{font-size:.2em;letter-spacing:.1em;color:var(--copper);font-weight:400;ve
 .two ul{list-style:none}.two li{font-size:13px;line-height:1.9;color:rgba(232,228,220,.5);padding-left:1rem;position:relative;margin-bottom:.6rem}.two li::before{content:"";position:absolute;left:0;top:.8em;width:5px;height:.5px;background:var(--copper)}
 .tag{display:inline-block;font-size:9px;letter-spacing:.18em;text-transform:uppercase;padding:4px 10px;border:.5px solid rgba(180,120,60,.3);color:var(--copper);margin-bottom:1.4rem}
 .shots{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;border-top:.5px solid var(--border);padding-top:2rem;gap:1.5rem}.shots a{display:block;border:.5px solid var(--border);overflow:hidden;line-height:0}.shots img{width:100%;height:auto;display:block;transition:opacity .2s}.shots a:hover img{opacity:.85}[hidden]{display:none!important}
+.hero p.lead,.hero .cta,.hero .note,.section,.footer-inner,.fixed-bar{-webkit-font-smoothing:auto}
 canvas{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}.hero,.section,.footer-inner{position:relative;z-index:1}.solid,.footer-inner{background:var(--bg)}
 .footer-inner{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:1rem;padding:2rem 2.5rem 0}
-.footer-info{font-size:10px;letter-spacing:.06em;color:rgba(232,228,220,.18);line-height:2}
-.footer-links{display:flex;gap:1.5rem}.footer-links a{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:rgba(232,228,220,.2);text-decoration:none;transition:color .2s}.footer-links a:hover{color:rgba(232,228,220,.6)}
+.footer-info{font-size:10px;letter-spacing:.06em;color:rgba(232,228,220,.4);line-height:2;font-weight:400}
+.footer-links{display:flex;gap:1.5rem}.footer-links a{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:rgba(232,228,220,.4);text-decoration:none;transition:color .2s;font-weight:400}.footer-links a:hover{color:rgba(232,228,220,.6)}
 .fixed-bar{position:fixed;bottom:0;left:0;right:0;z-index:20;display:flex;justify-content:space-between;align-items:center;padding:1.2rem 2.5rem;background:var(--bg);border-top:.5px solid var(--border)}
-.fixed-bar .tagline{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
-.bar-socials{display:flex;gap:1.2rem}.bar-socials a{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);text-decoration:none;transition:color .2s}.bar-socials a:hover{color:var(--fg)}
+.fixed-bar .tagline{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:rgba(232,228,220,.55);font-weight:400}
+.bar-socials{display:flex;gap:1.2rem}.bar-socials a{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:rgba(232,228,220,.4);text-decoration:none;transition:color .2s;font-weight:400}.bar-socials a:hover{color:var(--fg)}
 @media(max-width:768px){
 nav{padding:1.5rem;align-items:center}.nav-links{display:none}.menu-toggle{display:flex}
 .hero{padding:8rem 1.5rem 3rem;margin-top:-5rem}.section{padding:3rem 1.5rem}
