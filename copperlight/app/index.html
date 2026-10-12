@@ -426,7 +426,8 @@ Object.keys(BASE_PALETTES).forEach(k => {
 /* ---- user palettes: 4 stops dark -> bright (0..255), stored under copperlightV1_customPalettes, addressed as 'user:<name>'. Same 5-role conversion as the built-ins. ---- */
 const BUILTIN_PALETTES = Object.keys(BASE_PALETTES), USERPAL_KEY = 'copperlightV1_customPalettes';
 let userPalettes = {};
-try { const d = JSON.parse(lsGet(USERPAL_KEY, '{}')); if (d && typeof d === 'object' && !Array.isArray(d)) Object.keys(d).forEach(n => { const a = d[n]; if (Array.isArray(a) && a.length === 4 && a.every(c => Array.isArray(c) && c.length === 3 && c.every(v => typeof v === 'number'))) userPalettes[n] = a.map(c => c.map(v => Math.max(0, Math.min(255, v)))); }); } catch(e){}
+function cleanStops(a){ return Array.isArray(a) && a.length === 4 && a.every(c => Array.isArray(c) && c.length === 3 && c.every(v => typeof v === 'number' && Number.isFinite(v))) ? a.map(c => c.map(v => Math.max(0, Math.min(255, v)))) : null; }   // shared by load and preset-bank Import
+try { const d = JSON.parse(lsGet(USERPAL_KEY, '{}')); if (d && typeof d === 'object' && !Array.isArray(d)) Object.keys(d).forEach(n => { const a = cleanStops(d[n]); if (a) userPalettes[n] = a; }); } catch(e){}
 function rolesFromStops(st){ return [st[0].map(v => v*0.3), st[0], st[1], st[2], st[3]].map(c => c.map(v => v/255)); }
 function registerUserPalettes(){
   Object.keys(PALETTES).forEach(k => { if (k.startsWith('user:')){ delete PALETTES[k]; delete PALETTE_NAMES[k]; } });
@@ -2757,9 +2758,11 @@ function buildM3UI(){
     hd.onclick = () => { const open = box.style.display === 'none'; box.style.display = open ? '' : 'none'; hd.querySelector('i').textContent = open ? '▾' : '▸'; syncKeySelects(); };
     syncKeySelects(); }
   bExp.onclick = () => {
-    if (!Object.keys(presets).length){ refreshPresetUI('No saved presets to export yet.'); return; }
+    if (!Object.keys(presets).length && !Object.keys(userPalettes).length && !Object.keys(ccMap).length && !Object.keys(presetKeys).length){ refreshPresetUI('Nothing to export yet.'); return; }
     const arr = []; for (let i = 0; i < PRESET_SLOTS; i++) arr.push(presets[i] || null);
-    const a = el('a', {href:URL.createObjectURL(new Blob([JSON.stringify({copperlightV1Presets:1, presets:arr}, null, 2)], {type:'application/json'})), download:'copperlight-v1-preset-bank.json'});
+    // The bank also carries what a cleared browser would otherwise lose: user palettes (presets refer to them by name), MIDI CC mappings and number-key hotkeys
+    const bank = {copperlightV1Presets:1, presets:arr, palettes:userPalettes, midiMap:ccMap, presetKeys};
+    const a = el('a', {href:URL.createObjectURL(new Blob([JSON.stringify(bank, null, 2)], {type:'application/json'})), download:'copperlight-v1-preset-bank.json'});
     document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
   bImp.onclick = () => imp.click();
@@ -2767,9 +2770,36 @@ function buildM3UI(){
     const file = imp.files[0]; if (!file) return; const rd = new FileReader();
     rd.onload = () => {
       try {
-        const d = JSON.parse(rd.result); const arr = Array.isArray(d) ? d : d && d.copperlightV1Presets ? d.presets : null; if (!Array.isArray(arr)) throw new Error('bad');
-        let n = 0; for (let i = 0; i < PRESET_SLOTS && i < arr.length; i++){ const v = arr[i]; if (v && typeof v === 'object' && v.P && typeof v.P === 'object'){ presets[i] = v; n++; } }
-        jset(PRESET_KEY, presets); refreshPresetUI(n ? 'Imported '+n+' preset(s).' : 'No valid presets found in that file.');
+        const d = JSON.parse(rd.result); const bank = Array.isArray(d) ? {presets:d} : d && d.copperlightV1Presets ? d : null;   // a bare array is the oldest bank format (presets only)
+        const arr = bank && (bank.presets == null ? [] : bank.presets); if (!Array.isArray(arr)) throw new Error('bad');
+        const isObj = o => o && typeof o === 'object' && !Array.isArray(o);
+        // User palettes. A name you already have with the same colours is skipped; with different colours, yours stays and the imported one becomes "Name (2)" (or the next free number), and imported presets are pointed at that copy
+        const rename = {}; let np = 0;
+        if (isObj(bank.palettes)) Object.keys(bank.palettes).forEach(name => {
+          const st = cleanStops(bank.palettes[name]); if (!st || !name.trim() || name === '__proto__') return;
+          const same = n => JSON.stringify(userPalettes[n]) === JSON.stringify(st);
+          let to = name; for (let k = 2; userPalettes[to] && !same(to); k++) to = name+' ('+k+')';
+          if (!userPalettes[to]){ userPalettes[to] = st; np++; }
+          if (to !== name) rename[name] = to;
+        });
+        if (np){ lsSet(USERPAL_KEY, JSON.stringify(userPalettes)); registerUserPalettes(); if (ui.refreshPal) ui.refreshPal(); }
+        let n = 0; for (let i = 0; i < PRESET_SLOTS && i < arr.length; i++){ const v = arr[i]; if (v && typeof v === 'object' && v.P && typeof v.P === 'object'){
+          if (typeof v.palette === 'string' && v.palette.startsWith('user:') && rename[v.palette.slice(5)]) v.palette = 'user:'+rename[v.palette.slice(5)];
+          presets[i] = v; n++; } }
+        if (n) jset(PRESET_KEY, presets);
+        // MIDI CC mappings: an imported CC replaces that CC's binding here, and a control keeps one CC (same rule as MIDI learn)
+        let nm = 0;
+        if (isObj(bank.midiMap)) Object.keys(bank.midiMap).forEach(cc => {
+          const t = bank.midiMap[cc], c = +cc; if (!/^\d+$/.test(cc) || c > 127 || !targetValid(t)) return;
+          Object.keys(ccMap).forEach(k => { if (ccMap[k] === t) delete ccMap[k]; }); ccMap[c] = t; nm++;
+        });
+        if (nm){ jset(MAP_KEY, ccMap); refreshBadges(); }
+        // Number-key hotkeys: an imported key replaces that key's assignment here
+        let nk = 0;
+        if (isObj(bank.presetKeys)) '1234567890'.split('').forEach(k => { const v = bank.presetKeys[k]; if (Number.isInteger(v) && v >= 0 && v < PRESET_SLOTS){ presetKeys[k] = v; nk++; } });
+        if (nk) jset(PKEYS_KEY, presetKeys);
+        const got = [[n, 'preset'], [np, 'palette'], [nm, 'MIDI mapping'], [nk, 'hotkey']].filter(x => x[0]).map(x => x[0]+' '+x[1]+(x[0] === 1 ? '' : 's'));
+        refreshPresetUI(got.length ? 'Imported '+got.join(', ')+'.' : 'Nothing new to import in that file.');
       } catch(err){ refreshPresetUI('Could not read that file — not a Copperlight v1.0 preset bank.'); }
       imp.value = '';
     };

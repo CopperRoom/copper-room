@@ -48,7 +48,7 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
 </ul>
 <p><strong>Opening it</strong></p>
 <p>Double-click <code>copperlight-v1.html</code>, or drag it into a browser window. No server is required. Your settings, presets and MIDI mappings are saved by the browser, so open the file in the same browser each time. They are stored per browser, per address: opening the file from a different location, or through a local server, starts with a clean slate.</p>
-<p>Copperlight also runs online at copperroom.studio/copperlight/app/. The online version and a downloaded copy keep their own saved data, because browsers store it per address. Use <strong>Export All</strong> and <strong>Import</strong> in the Presets section to move presets between them.</p>
+<p>Copperlight also runs online at copperroom.studio/copperlight/app/. The online version and a downloaded copy keep their own saved data, because browsers store it per address. Use <strong>Export All</strong> and <strong>Import</strong> in the Presets section to move your presets, palettes, MIDI mappings and hotkeys between them.</p>
 <h2 id="quick-start">Quick start</h2>
 <p>You can have a kick-reactive picture in about a minute.</p>
 <ol>
@@ -435,8 +435,8 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
 </ul>
 <p>MIDI <strong>Program Change</strong> messages 0–127 recall slots A1 to H16 in order, which suits hardware with a program or pattern select (see MIDI).</p>
 <p><strong>Preset Hotkeys.</strong> Open this fold-out to assign any slot to the number keys <strong>1</strong> to <strong>9</strong> and <strong>0</strong>. Pressing the key recalls its slot, which is the fastest way to switch looks from a laptop keyboard.</p>
-<p><strong>Export All</strong> saves the whole bank as <code>copperlight-v1-preset-bank.json</code>, and <strong>Import</strong> loads such a file into the matching slots. Use these to back up your presets or move them to another computer or browser, since presets are stored per browser.</p>
-<p><strong>Clearing browser data erases your setup.</strong> Presets and settings live in the browser's own storage, not in a file. Clearing browsing data in Chrome or Opera with <em>Cookies and other site data</em> ticked erases them: presets, user palettes, MIDI mappings, number-key assignments and all panel settings. Private or incognito windows also lose everything when closed. Use <strong>Export All</strong> before clearing browsing data. The backup file holds your presets (including their macros and LFOs) but not your user palettes, MIDI mappings or number-key assignments.</p>
+<p><strong>Export All</strong> saves the whole bank as <code>copperlight-v1-preset-bank.json</code>, together with your user palettes, MIDI mappings and preset hotkeys. <strong>Import</strong> loads such a file: presets go into the matching slots, and imported MIDI mappings and hotkeys replace yours for the same CC or key. If you already have a palette with the same name but different colours, yours is kept and the imported one is added as, for example, <em>Dusk (2)</em>, and the imported presets use that copy. Use these to back up your setup or move it to another computer or browser, since everything is stored per browser.</p>
+<p><strong>Clearing browser data erases your setup.</strong> Presets and settings live in the browser's own storage, not in a file. Clearing browsing data in Chrome or Opera with <em>Cookies and other site data</em> ticked erases them: presets, user palettes, MIDI mappings, number-key assignments and all panel settings. Private or incognito windows also lose everything when closed. Use <strong>Export All</strong> before clearing browsing data. The backup file holds your presets (including their macros and LFOs), user palettes, MIDI mappings and number-key assignments. Other panel settings are not included.</p>
 <h3 id="dice-undo-and-ab">Dice, Undo and A/B</h3>
 <ul>
 <li><strong>Dice (D)</strong> rolls a new random look within sensible ranges: a different palette, new Scale, Detail and Speed, possible Symmetry, Tiles, Twist, Slice, Spin, Lens, Chaos, Trails and Hue Drift, and up to three stages switched on. It keeps your mode, text and audio settings.</li>
@@ -698,7 +698,7 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
 </tr>
 <tr>
 <td>My presets and settings disappeared</td>
-<td>They are stored per browser and per address. Open the file in the same browser and from the same location, or use <strong>Export All</strong> to move presets between them. Clearing the browser's site data also erases them.</td>
+<td>They are stored per browser and per address. Open the file in the same browser and from the same location, or use <strong>Export All</strong> and <strong>Import</strong> to move your presets, palettes, MIDI mappings and hotkeys between them. Clearing the browser's site data also erases them.</td>
 </tr>
 <tr>
 <td>Recording will not start</td>
