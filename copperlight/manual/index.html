@@ -7,6 +7,7 @@
 body{margin:0;background:var(--bg);color:var(--fg);font:300 16px/1.65 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
 .wrap{display:grid;grid-template-columns:260px minmax(0,1fr);max-width:1180px;margin:0 auto}
 nav{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;padding:36px 20px 36px 24px;border-right:1px solid var(--line)}
+nav{scrollbar-width:thin;scrollbar-color:rgba(232,228,220,.18) transparent}nav::-webkit-scrollbar{width:6px}nav::-webkit-scrollbar-thumb{background:rgba(232,228,220,.16);border-radius:0}nav::-webkit-scrollbar-thumb:hover{background:rgba(232,228,220,.3)}
 nav .brand{font-weight:400;letter-spacing:.02em;font-size:15px;margin-bottom:2px}nav .brand small{color:var(--cu);font-size:11px;margin-left:4px}
 nav .back{display:flex;gap:16px;margin-bottom:26px;padding-bottom:16px;border-bottom:1px solid var(--line)}nav .back a{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--cu);padding:0}nav .back a:hover{color:var(--fg)}main .backf{margin-top:28px;font-size:11px;letter-spacing:.14em;text-transform:uppercase}main .backf a{color:var(--cu);text-decoration:none;margin-right:20px}main .backf a:hover{color:var(--fg)}
 nav .by{color:var(--mut);font-size:12px;margin-bottom:22px}
