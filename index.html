@@ -371,6 +371,7 @@
             </div>
           </div>
           <button type="submit" class="form-submit">Send message</button>
+          <p id="contact-error" role="alert" style="display:none; margin-top:1.5rem; font-size:13px; color:rgba(232,228,220,0.5); line-height:1.9;">Something went wrong and your message wasn't sent. Please try again, or email <a href="mailto:hello@copperroom.studio" style="color:var(--copper);">hello@copperroom.studio</a>.</p>
         </form>
         <div id="contact-success" style="display:none; padding: 2rem 0;">
           <p style="font-size:13px;color:rgba(232,228,220,0.5);line-height:1.9;">Message sent — I'll be in touch shortly.</p>
@@ -517,6 +518,8 @@
     contactForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const data = new FormData(contactForm);
+      const contactError = document.getElementById('contact-error');
+      contactError.style.display = 'none';
       try {
         const response = await fetch(contactForm.action, {
           method: 'POST',
@@ -526,9 +529,12 @@
         if (response.ok) {
           contactForm.style.display = 'none';
           document.getElementById('contact-success').style.display = 'block';
+        } else {
+          contactError.style.display = 'block';
         }
       } catch (err) {
         console.error(err);
+        contactError.style.display = 'block';
       }
     });
   }
