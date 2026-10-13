@@ -39,6 +39,17 @@
   .transport button{position:relative;}
   .transport .one{position:absolute;font-size:8px;line-height:1;right:5px;top:50%;transform:translateY(-35%);}
   .transport button:disabled{opacity:0.35;cursor:default;}
+  .transport button.dim{opacity:0.45;}
+  .plist{margin-bottom:8px;}
+  .plrow{display:grid;grid-template-columns:18px 1fr 22px;gap:6px;align-items:center;padding:2px 0 2px 2px;cursor:pointer;user-select:none;border-radius:2px;color:var(--muted);}
+  .plrow:hover{color:var(--text);}
+  .plrow.on{color:var(--accent);}
+  .plrow .pln{text-align:right;font-size:10px;}
+  .plrow .plt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+  .plrow button{padding:0;height:20px;line-height:1;}
+  .plrow.drag{opacity:0.4;}
+  .plrow.dropb{box-shadow:inset 0 2px 0 var(--accent);} .plrow.dropa{box-shadow:inset 0 -2px 0 var(--accent);}
+  .plist .pbtns{margin-top:6px;grid-template-columns:1fr;}
   #panel > *{flex-shrink:0;}
   .foot{position:sticky;bottom:0;margin:auto -12px 0;padding:8px 12px 9px;background:#111116;border-top:1px solid var(--line);z-index:2;}
   .foot .fps{color:var(--muted);margin-bottom:6px;font-variant-numeric:tabular-nums;}
@@ -307,6 +318,7 @@ const CONTROLS = [
   {id:'flash',   label:'Screen Flash', min:0, max:1, step:0.01, def:1, group:'master', tip:'Whole-screen brightness flash on each kick (scaled by Heat). Remembered separately for each mode / Video Synth source'},
   {id:'bright',  label:'Bright',  min:-1, max:1, step:0.01, def:0,    group:'master', tip:'Exposure. + lifts toward white, - darkens'},
   {id:'decay',   label:'Decay',   min:0,  max:1, step:0.01, def:0.5,  group:'master', tip:'How slowly reactions fall back'},
+  {id:'inputGain',label:'Input Gain',min:-12,max:24,step:0.5,def:0,group:'audio',unit:'dB',noMacro:true,tip:'Boosts or reduces what Copperlight listens to. Raise it when a source is too quiet for the sensitivity sliders. Does not change the sound you hear or the audio in a recording.'},
   {id:'kickSens',label:'Kick Sensitivity',min:0,max:1,step:0.01,def:0.25,group:'audio',tip:'Higher catches softer kicks (and more false triggers). Lower = only clear kicks'},
   {id:'trebleSens', label:'Treble Sensitivity', min:0,max:1,step:0.01,def:0.7,group:'audio',tip:'Hi-hats and top-end hits (drives Typography Shatter scatter). Higher reacts to softer hits (and more false triggers)'},
   {id:'midSens', label:'Mid Sensitivity', min:0,max:1,step:0.01,def:0.5, group:'audio',tip:'Snares, claps, stabs. Higher reacts to softer hits (and more false triggers). Sustained vocals/pads are ignored'},
@@ -368,7 +380,7 @@ const LENS_STYLES = ['Ribs','Fan','Anamorphic','Melt','Glitch','Pixels','Fly Eye
 const GEN_STYLES  = [['contours','Contours'],['noise','Noise']];
 const S = { scene:'videosynth', source:'generator', genStyle:'contours', modeFlash:{}, modeHeat:{}, heatBase:0.35, scopeColor:'', scopeGridColor:'', lensStyle:0, palette:'dive', inkImage:'off',
   stages:{feedback:false, displacement:false, glitch:false, colorize:false, ascii:false, scanlines:false, chromatic:false, vhs:false, static:false},
-  palAuto:false, palRate:16, shapeAuto:false, shapeRate:8, scopeGrid:true, shatterText:'', scrollText:'BE KIND', scrollDir:'left', textFont:'sans', scrollAccent:false, scrollVanish:false, asciiSet:'classic', photoAuto:false, photoRate:4, videoAuto:false, videoRate:4, photoFolder:null, videoFolder:null };
+  palAuto:false, palRate:16, shapeAuto:false, shapeRate:8, scopeGrid:true, shatterText:'Copperlight', scrollText:'BE KIND', scrollDir:'left', textFont:'sans', scrollAccent:false, scrollVanish:false, asciiSet:'classic', photoAuto:false, photoRate:4, videoAuto:false, videoRate:4, photoFolder:null, videoFolder:null };
 // fixed order (same as prototype minus Vignette, which is now the universal Vignette)
 const STAGES = [
   {id:'feedback',    label:'Feedback',          params:['fbZoom','fbDecay']},
@@ -798,7 +810,6 @@ const TEXT_FONTS = [['sans','Heavy Sans','900 {S}px "CL Sans", "Arial Black", Ar
 // the faces are embedded (see #clTextFonts), so every machine draws the same letters; load them all up front and rebuild the text caches once they are ready
 if (document.fonts && document.fonts.load) Promise.all(TEXT_FONTS.map(f => document.fonts.load(f[2].replace('{S}', '40'), 'ABC'))).then(() => { shKey = ''; scrollAtlas.key = ''; }).catch(() => {});
 function textFont(px){ const f = TEXT_FONTS.find(x => x[0] === S.textFont) || TEXT_FONTS[0]; return f[2].replace('{S}', px); }
-function liveLabel(){ return (midiBpm > 0 && performance.now()-lastTickAt < 1000) ? Math.round(midiBpm)+' BPM' : 'COPPERLIGHT'; }
 function buildScrollAtlas(text, kern){
   const key = text+'|'+kern.toFixed(2)+'|'+S.textFont; if (key === scrollAtlas.key) return;
   scrollAtlas.key = key;
@@ -1314,6 +1325,7 @@ addEventListener('resize', resize);
 
 /* ---------------------------------------------------------------- audio engine (ported from prototype) */
 let audioCtx, analyser, sourceNode, mediaEl, displayStream, micStream, recordDest;
+let inGainNode, dryBus;   // source -> inGainNode (Input Gain) -> every analysis node; source -> dryBus (unity) -> file monitor and recording, so the gain never reaches what you hear or record
 let bassFilter, bassAnalyser, bassData, midFilterHP, midFilterLP, midAnalyser, midData, splitter, analyserL, analyserR, dataL, dataR;
 let clickHP, clickLP, clickAnalyser, clickData, trebleHP, trebleAnalyser, trebleData;
 let freqData, timeData, stereoSrc = true;
@@ -1344,13 +1356,16 @@ function ensureAudioCtx(){
     trebleHP = audioCtx.createBiquadFilter(); trebleHP.type = 'highpass'; trebleHP.frequency.value = 6000;
     trebleAnalyser = audioCtx.createAnalyser(); trebleAnalyser.fftSize = 1024; trebleAnalyser.smoothingTimeConstant = 0;
     trebleData = new Uint8Array(trebleAnalyser.fftSize); trebleHP.connect(trebleAnalyser);
+    inGainNode = audioCtx.createGain(); inGainNode.gain.value = dbToGain(P.inputGain);
+    inGainNode.connect(analyser); inGainNode.connect(splitter); inGainNode.connect(bassFilter); inGainNode.connect(midFilterHP); inGainNode.connect(clickHP); inGainNode.connect(trebleHP);
+    dryBus = audioCtx.createGain();
   }
 }
 function connectSource(node){
   if (sourceNode){ try { sourceNode.disconnect(); } catch(e){} }
   sourceNode = node;
   stereoSrc = (node.channelCount || 1) > 1;
-  node.connect(analyser); node.connect(splitter); node.connect(bassFilter); node.connect(midFilterHP); node.connect(clickHP); node.connect(trebleHP);
+  node.connect(inGainNode); node.connect(dryBus);
   if (ui.setDot) ui.setDot('audio', true);
 }
 function stopDisplayStream(){ if (displayStream){ try { displayStream.getTracks().forEach(t=>t.stop()); } catch(e){} displayStream = null; } }
@@ -1393,10 +1408,40 @@ async function useMic(deviceId){
   } catch(err){ setAudioStatus('Mic access denied or unavailable: '+err.message); }
 }
 function fmtTime(s){ s = Math.max(0, s|0); return (s/60|0)+':'+String(s%60).padStart(2,'0'); }
-let audioList = [], audioIdx = 0, audioLoop = true;
+let audioList = [], audioIdx = 0, audioRepeat = 'all', mediaSrcNode = null;   // repeat: 'all' | 'one' | 'off', runtime only (never persisted). mediaSrcNode = mediaEl's graph node, to tell whether File is the live source
 const AUDIO_EXT = /\.(wav|wave|mp3|flac|aif|aiff|m4a|aac|ogg|oga|opus|weba|wma)$/i;
 const isAudioFile = f => (f.type && f.type.startsWith('audio/')) || AUDIO_EXT.test(f.name || '');
-function loadAudioList(files){ audioList = files.slice().sort((a,b) => a.name.localeCompare(b.name, undefined, {numeric:true})); audioIdx = 0; useFile(audioList[0]); }
+const fileLive = () => !!mediaEl && sourceNode === mediaSrcNode;
+// Playlist: each added batch is natural-sorted within itself (track2 before track10) and appended. Playback is only started when nothing was playing from File
+// (empty list, or Mic / System is the live source); otherwise the current track carries on.
+function addAudioFiles(files){
+  const batch = files.slice().sort((a,b) => a.name.localeCompare(b.name, undefined, {numeric:true})); if (!batch.length) return;
+  const start = audioList.length; audioList = audioList.concat(batch);
+  if (!start || !fileLive()){ audioIdx = start; useFile(audioList[start]); }
+  else { setAudioStatus('Added '+batch.length+' file'+(batch.length > 1 ? 's' : '')+' to the playlist.'); updateTransportUI(); }
+}
+function playTrack(i){ if (i < 0 || i >= audioList.length) return; audioIdx = i; useFile(audioList[i]); }
+function moveTrack(from, to){   // to = final index; audioIdx follows the playing track
+  const n = audioList.length; if (from === to || from < 0 || from >= n || to < 0 || to >= n) return;
+  const [f] = audioList.splice(from, 1); audioList.splice(to, 0, f);
+  if (from === audioIdx) audioIdx = to; else if (from < audioIdx && to >= audioIdx) audioIdx--; else if (from > audioIdx && to <= audioIdx) audioIdx++;
+  updateTransportUI();
+}
+function removeTrack(i){   // removing the playing track plays the next one (wrapping, like Next); removing the last remaining track clears
+  if (i < 0 || i >= audioList.length) return;
+  audioList.splice(i, 1);
+  if (!audioList.length){ clearPlaylist(); return; }
+  if (i === audioIdx){ playTrack(i % audioList.length); return; }
+  if (i < audioIdx) audioIdx--;
+  updateTransportUI();
+}
+function clearPlaylist(){   // back to the start-up state: no source connected, transport and playlist hidden
+  const live = fileLive();
+  if (mediaEl) mediaEl.pause();
+  if (live){ try { sourceNode.disconnect(); } catch(e){} sourceNode = null; detachMonitor(); ui.setDot('audio', false); ui.setSrc(null); setAudioStatus('Connect an audio source.'); }
+  mediaEl = null; mediaSrcNode = null; audioList = []; audioIdx = 0;
+  ui.fileRow.style.display = 'none'; updateTransportUI();
+}
 function stepAudio(d){ if (audioList.length < 2) return; audioIdx = (audioIdx+d+audioList.length) % audioList.length; useFile(audioList[audioIdx]); }
 const ICON = {
   start:'<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><rect x="2" y="3" width="2" height="10"/><path d="M13 3v10L5.5 8z"/></svg>',
@@ -1408,23 +1453,28 @@ const ICON = {
 function updateTransportUI(){
   if (!ui.tpPrev) return;
   const n = audioList.length; ui.tpNext.disabled = n < 2; ui.tpPrev.title = n > 1 ? 'Restart / previous file' : 'Restart';
-  ui.tpLoop.classList.toggle('active', audioLoop);
-  ui.tpLoop.innerHTML = ICON.loop + (n < 2 && audioLoop ? '<b class="one">1</b>' : '');
-  ui.tpLoop.title = audioLoop ? (n > 1 ? 'Repeat all (click to turn off)' : 'Repeat this file (click to turn off)') : 'Repeat off (click to repeat)';
+  if (mediaEl) mediaEl.loop = audioRepeat === 'one' || (audioRepeat === 'all' && n < 2);   // the list can grow or shrink under a playing track
+  ui.tpLoop.classList.toggle('active', audioRepeat !== 'off'); ui.tpLoop.classList.toggle('dim', audioRepeat === 'off');
+  ui.tpLoop.innerHTML = ICON.loop + (audioRepeat === 'one' ? '<b class="one">1</b>' : '');
+  ui.tpLoop.title = audioRepeat === 'all' ? 'Repeat all (click for repeat track)' : audioRepeat === 'one' ? 'Repeat track (click to turn off)' : 'Repeat off (click to repeat all)';
   ui.fileName.textContent = (audioList[audioIdx] ? audioList[audioIdx].name : '') + (n > 1 ? '  ('+(audioIdx+1)+'/'+n+')' : '');
+  if (ui.refreshPlaylist) ui.refreshPlaylist();
 }
 function useFile(file){
   ensureAudioCtx(); stopDisplayStream(); stopMicStream();
   if (mediaEl) mediaEl.pause();
-  mediaEl = new Audio(); mediaEl.src = URL.createObjectURL(file); mediaEl.loop = audioLoop && audioList.length < 2;
-  { const me = mediaEl; me.addEventListener('ended', () => { if (me !== mediaEl) return; if (audioList.length > 1 && (audioLoop || audioIdx < audioList.length-1)) stepAudio(1); }); }
-  connectSource(audioCtx.createMediaElementSource(mediaEl)); ui.setSrc('file');
-  analyser.connect(audioCtx.destination);
-  mediaEl.addEventListener('timeupdate', () => { if (!ui.seeking){ ui.seek.value = mediaEl.duration ? mediaEl.currentTime/mediaEl.duration*1000 : 0; } ui.tCur.textContent = fmtTime(mediaEl.currentTime); ui.tDur.textContent = fmtTime(mediaEl.duration||0); });
-  mediaEl.addEventListener('play', () => ui.playBtn.textContent = 'Pause'); mediaEl.addEventListener('pause', () => ui.playBtn.textContent = 'Play');
+  mediaEl = new Audio(); mediaEl.src = URL.createObjectURL(file);   // mediaEl.loop is set in updateTransportUI (repeat one, or repeat all with a single file)
+  { const me = mediaEl; me.addEventListener('ended', () => {   // 'one' loops and never ends; 'all' wraps after the last track; 'off' stops there
+      if (me !== mediaEl || !fileLive()) return;
+      if (audioIdx < audioList.length-1) playTrack(audioIdx+1); else if (audioRepeat === 'all' && audioList.length > 1) playTrack(0); }); }
+  mediaSrcNode = audioCtx.createMediaElementSource(mediaEl); connectSource(mediaSrcNode); ui.setSrc('file');
+  dryBus.connect(audioCtx.destination);   // files are monitored pre-gain; Mic and System never are (no feedback)
+  { const me = mediaEl;   // listeners belong to their own element: an old one (paused on track change or Clear) must not touch the current transport
+    me.addEventListener('timeupdate', () => { if (me !== mediaEl) return; if (!ui.seeking){ ui.seek.value = me.duration ? me.currentTime/me.duration*1000 : 0; } ui.tCur.textContent = fmtTime(me.currentTime); ui.tDur.textContent = fmtTime(me.duration||0); });
+    me.addEventListener('play', () => { if (me === mediaEl) ui.playBtn.textContent = 'Pause'; }); me.addEventListener('pause', () => { if (me === mediaEl) ui.playBtn.textContent = 'Play'; }); }
   mediaEl.play().catch(()=>{}); setAudioStatus('Local file connected.'); ui.fileRow.style.display = 'block'; if (!audioList.includes(file)){ audioList = [file]; audioIdx = 0; } updateTransportUI();
 }
-function detachMonitor(){ if (audioCtx && analyser){ try { analyser.disconnect(audioCtx.destination); } catch(e){} } }
+function detachMonitor(){ if (audioCtx && dryBus){ try { dryBus.disconnect(audioCtx.destination); } catch(e){} } }
 
 /* ---------------------------------------------------------------- UI */
 const ui = {};
@@ -1442,7 +1492,7 @@ function section(title, collapsed){
   s.appendChild(hd); s.appendChild(bd); panel.appendChild(s); sections.push(s); return bd;
 }
 const sliderEls = {};
-function fmtVal(c, v){ return c.step >= 1 ? String(Math.round(v)) : v.toFixed(2); }
+function fmtVal(c, v){ if (c.unit === 'dB') return (v > 0 ? '+' : '')+(v % 1 ? v.toFixed(1) : v.toFixed(0))+' dB'; return c.step >= 1 ? String(Math.round(v)) : v.toFixed(2); }
 function addSlider(parent, id){
   const c = CTL[id]; const row = el('div', {className:'row'});
   row.innerHTML = '<label title="'+(c.tip||'')+'"><span>'+c.label+'<em class="lm" data-id="'+id+'"></em><em class="cc" data-t="c:'+id+'"></em></span><b id="v_'+id+'"></b></label>';
@@ -1454,9 +1504,23 @@ function addSlider(parent, id){
   sliderEls[id].val.textContent = fmtVal(c, P[id]);
 }
 let lookApplying = false;
+// Input Gain: one value per source (mic / sys / file), kept in its own key (audio setup, not a look). 'last' = the source the slider currently belongs to;
+// with no source connected the slider edits the most recently used source's value.
+const GAIN_KEY = 'copperlightV1_inputGain', GAIN_SRCS = ['mic','sys','file'];
+const dbToGain = db => Math.pow(10, db/20);
+const gainMem = (() => { const d = jget(GAIN_KEY, null), o = {mic:0, sys:0, file:0, last:'mic'};
+  if (d && typeof d === 'object'){ GAIN_SRCS.forEach(k => { if (typeof d[k] === 'number' && Number.isFinite(d[k])) o[k] = clamp(d[k], -12, 24); }); if (GAIN_SRCS.includes(d.last)) o.last = d.last; }
+  return o; })();
+let gainSaveTimer = null;
+function inputGainChanged(v){
+  gainMem[gainMem.last] = v; clearTimeout(gainSaveTimer); gainSaveTimer = setTimeout(() => jset(GAIN_KEY, gainMem), 300);
+  if (inGainNode) inGainNode.gain.setTargetAtTime(dbToGain(v), audioCtx.currentTime, 0.03);   // ~30 ms glide: no clicks, no detector jumps while dragging
+}
+function useGainFor(k){ if (!GAIN_SRCS.includes(k)) return; gainMem.last = k; jset(GAIN_KEY, gainMem); setControl('inputGain', gainMem[k], true); }
 function setControl(id, v, noSave){
   const c = CTL[id]; v = clamp(v, c.min, c.max); if (c.step >= 1) v = Math.round(v);
   P[id] = v; if (id === 'flash' && !flashLoading && !lookApplying){ S.modeFlash[modeKey()] = v; if (typeof scheduleSave === 'function') scheduleSave(); }
+  if (id === 'inputGain') inputGainChanged(v);
   if (id === 'heat' && !flashLoading && !lookApplying){ S.modeHeat[modeKey()] = v; if (typeof scheduleSave === 'function') scheduleSave(); }
   const s = sliderEls[id];
   if (s){ s.inp.value = v; s.val.textContent = fmtVal(c, v); }
@@ -1495,7 +1559,7 @@ function loadState(){
     if (!SHUFFLE_RATES.includes(S.palRate)) S.palRate = 16;
     if (!SHUFFLE_RATES.includes(S.shapeRate)) S.shapeRate = 8;
     S.shapeAuto = !!S.shapeAuto; S.scopeGrid = S.scopeGrid !== false;
-    if (typeof S.shatterText !== 'string') S.shatterText = ''; if (typeof S.scrollText !== 'string') S.scrollText = 'BE KIND';
+    if (typeof S.shatterText !== 'string') S.shatterText = 'Copperlight'; if (typeof S.scrollText !== 'string') S.scrollText = 'BE KIND';
     if (!ASCII_SETS.some(x => x[0] === S.asciiSet)) S.asciiSet = 'classic';
     if (!SCROLL_DIRS.some(x => x[0] === S.scrollDir)) S.scrollDir = 'left'; if (!TEXT_FONTS.some(x => x[0] === S.textFont)) S.textFont = 'sans'; S.scrollAccent = !!S.scrollAccent; S.scrollVanish = !!S.scrollVanish;
     S.palAuto = !!S.palAuto && S.palette !== 'monochromatic';
@@ -1507,6 +1571,16 @@ function loadState(){
   } catch(e){}
 }
 loadState();
+// One-time text init: before Build 45 the Shatter default was '' (blank meant "live BPM / COPPERLIGHT"), so a saved '' from then is not a choice.
+// Until the marker exists, a saved '' counts as unset and gets the default; once it exists, '' stays '' (the performer emptied the field).
+if (lsGet('copperlightV1_textInit', '') !== '1'){
+  let fixed = false;
+  if (S.shatterText === ''){ S.shatterText = 'Copperlight'; fixed = true; }
+  if (S.scrollText === ''){ S.scrollText = 'BE KIND'; fixed = true; }
+  if (fixed) saveState();   // write it now: a reload before any other change must not bring the old '' back
+  lsSet('copperlightV1_textInit', '1');
+}
+P.inputGain = gainMem[gainMem.last];   // Input Gain belongs to a source, not to the saved panel state
 /* Screen Flash is a per-mode setting: each mode (and each Video Synth source / generator style) remembers its own value. Modes that flash their own elements (Contours lines, Ink, Strobe Blocks, Voronoi) Tunnel, Moire and both scopes default to 0. */
 function modeKey(){ return S.scene === 'videosynth' ? 'vs:'+(S.source === 'generator' ? S.genStyle : S.source) : S.scene; }
 function modeFlashDefault(k){ return (k === 'ink' || k === 'strobe' || k === 'voronoi' || k === 'tunnel' || k === 'moire' || k === 'shatter' || k === 'scope' || k === 'xy' || k === 'vs:contours') ? 0 : 1; }
@@ -1532,7 +1606,7 @@ function buildUI(){
   const ab = el('div', {className:'btns c3'});
   const bMic = el('button', {textContent:'Mic'}), bSys = el('button', {textContent:'System'}), bFile = el('button', {textContent:'File'});
   ab.append(bMic, bSys, bFile); b.appendChild(ab);
-  ui.setSrc = k => { bMic.classList.toggle('active', k === 'mic'); bSys.classList.toggle('active', k === 'sys'); bFile.classList.toggle('active', k === 'file'); };   // the connected source button reads as live
+  ui.setSrc = k => { bMic.classList.toggle('active', k === 'mic'); bSys.classList.toggle('active', k === 'sys'); bFile.classList.toggle('active', k === 'file'); if (k) useGainFor(k); };   // the connected source button reads as live; connecting a source loads its own Input Gain
   ui.audioStatus = el('div', {className:'status'}, 'Connect an audio source.'); b.appendChild(ui.audioStatus);
   { // level meter: L (top) and R (bottom) RMS ladders, dB scale underneath, peak-hold tick on each (display only; nothing else reads these)
     const bar = '<div class="mb"><div class="meter"><i></i></div><div class="mhold" style="opacity:0"></div></div>';
@@ -1551,7 +1625,35 @@ function buildUI(){
   ui.tpLoop = el('button', {title:'Repeat'}, ICON.loop);
   tp.append(ui.tpPrev, ui.tpBack, ui.playBtn, ui.tpFwd, ui.tpNext, ui.tpLoop);
   ui.fileRow.append(ui.fileName, ui.seek, tl, tp); b.appendChild(ui.fileRow);
-  addSlider(b, 'kickSens'); addSlider(b, 'midSens'); addSlider(b, 'trebleSens');
+  // Playlist fold-out (same look as Preset Hotkeys). Rows are divs (never focused, so Space and letter shortcuts keep working); × is a button, blurred on click like every button.
+  // Reorder by dragging a row: the drag carries no 'Files', so the window's file-drop handlers ignore it.
+  { const hd = el('div', {className:'subhd'}); hd.innerHTML = '<span>Playlist</span><i>▸</i>'; ui.fileRow.appendChild(hd);
+    const box = el('div', {className:'plist'}); box.style.display = 'none'; ui.fileRow.appendChild(box);
+    const rows = el('div'); const cr = el('div', {className:'pbtns'}); const bClear = el('button', {textContent:'Clear', title:'Stop playback and empty the playlist'}); cr.appendChild(bClear); box.append(rows, cr);
+    hd.onclick = () => { const open = box.style.display === 'none'; box.style.display = open ? '' : 'none'; hd.querySelector('i').textContent = open ? '▾' : '▸'; };
+    bClear.onclick = () => clearPlaylist();
+    let dragFrom = null;
+    const unmark = () => rows.querySelectorAll('.plrow').forEach(r => r.classList.remove('dropb', 'dropa'));
+    ui.refreshPlaylist = () => {
+      hd.querySelector('span').textContent = 'Playlist ('+audioList.length+')'; rows.innerHTML = '';
+      audioList.forEach((f, i) => {
+        const r = el('div', {className:'plrow'+(i === audioIdx ? ' on' : ''), draggable:true, title:f.name});
+        const x = el('button', {textContent:'×', title:'Remove from playlist'});
+        r.append(el('span', {className:'pln', textContent:String(i+1)}), el('span', {className:'plt', textContent:f.name}), x);
+        r.onclick = e => { if (e.target === x) return; if (i === audioIdx && mediaEl){ if (mediaEl.paused) mediaEl.play().catch(()=>{}); } else playTrack(i); };   // the playing track is not restarted by a stray click
+        x.onclick = () => removeTrack(i);
+        r.addEventListener('dragstart', e => { dragFrom = i; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(i)); r.classList.add('drag'); });
+        r.addEventListener('dragend', () => { dragFrom = null; unmark(); r.classList.remove('drag'); });
+        r.addEventListener('dragover', e => { if (dragFrom === null) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; unmark();
+          const after = e.clientY > r.getBoundingClientRect().top + r.offsetHeight/2; r.classList.add(after ? 'dropa' : 'dropb'); });
+        r.addEventListener('drop', e => { if (dragFrom === null) return; e.preventDefault(); e.stopPropagation();
+          const after = e.clientY > r.getBoundingClientRect().top + r.offsetHeight/2; let to = i + (after ? 1 : 0); if (dragFrom < to) to--;
+          const from = dragFrom; dragFrom = null; unmark(); moveTrack(from, to); });
+        rows.appendChild(r);
+      });
+    };
+  }
+  addSlider(b, 'inputGain'); addSlider(b, 'kickSens'); addSlider(b, 'midSens'); addSlider(b, 'trebleSens');
   ui.dbgBtn = el('button', {textContent:'Kick Debug'}); ui.dbgBtn.style.marginTop = '8px'; b.appendChild(ui.dbgBtn);
   ui.dbgCv = el('canvas', {width:240, height:56}); ui.dbgCv.style.cssText = 'display:none;width:100%;height:56px;background:#0b0b0d;border-radius:3px;margin-top:4px;'; b.appendChild(ui.dbgCv);
   ui.dbgOn = false; ui.dbgBtn.onclick = () => { ui.dbgOn = !ui.dbgOn; ui.dbgBtn.classList.toggle('active', ui.dbgOn); ui.dbgCv.style.display = ui.dbgOn ? 'block' : 'none'; };
@@ -1566,7 +1668,7 @@ function buildUI(){
     } else useMic();
   };
   bSys.onclick = () => { detachMonitor(); useSystemAudio(); };
-  bFile.onclick = () => fin.click(); fin.onchange = () => { if (fin.files.length) loadAudioList(Array.from(fin.files)); fin.value = ''; };
+  bFile.onclick = () => fin.click(); fin.onchange = () => { if (fin.files.length) addAudioFiles(Array.from(fin.files)); fin.value = ''; };
   ui.micSel.onchange = () => { if (ui.micSel.value) useMic(ui.micSel.value); };
   ui.playBtn.onclick = () => { if (!mediaEl) return; if (mediaEl.paused) mediaEl.play(); else mediaEl.pause(); };
   ui.seek.oninput = () => { ui.seeking = true; if (mediaEl && mediaEl.duration) mediaEl.currentTime = ui.seek.value/1000*mediaEl.duration; };
@@ -1575,7 +1677,7 @@ function buildUI(){
   ui.tpBack.onclick = () => seekBy(-10); ui.tpFwd.onclick = () => seekBy(10);
   ui.tpPrev.onclick = () => { if (mediaEl && mediaEl.currentTime > 3 || audioList.length < 2){ if (mediaEl) mediaEl.currentTime = 0; } else stepAudio(-1); };
   ui.tpNext.onclick = () => stepAudio(1);
-  ui.tpLoop.onclick = () => { audioLoop = !audioLoop; if (mediaEl) mediaEl.loop = audioLoop && audioList.length < 2; updateTransportUI(); };
+  ui.tpLoop.onclick = () => { audioRepeat = {all:'one', one:'off', off:'all'}[audioRepeat]; updateTransportUI(); };
   if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) navigator.mediaDevices.addEventListener('devicechange', () => { if (micStream) populateMicDeviceSelect(); });
 
   // Scene
@@ -1815,7 +1917,7 @@ function nextRecordingFilename(ext, res){
 }
 function startRecording(){
   if (!audioCtx || !analyser){ ui.recStatus.textContent = 'Connect an audio source before recording.'; return; }
-  if (!recordDest){ recordDest = audioCtx.createMediaStreamDestination(); analyser.connect(recordDest); }
+  if (!recordDest){ recordDest = audioCtx.createMediaStreamDestination(); dryBus.connect(recordDest); }   // records the source as it arrives, before Input Gain
   const is4k = ui.recRes.value === '4k'; recordCanvas.width = is4k ? 3840 : 1920; recordCanvas.height = is4k ? 2160 : 1080;
   const mimeType = pickRecordMimeType(recordCanvas.width);
   if (!mimeType){ ui.recStatus.textContent = 'No usable video encoder at that resolution — try 1080p.'; return; }
@@ -1978,7 +2080,7 @@ async function filesFromEntry(entry){
 function adoptDropped(files, label){
   const imgs = files.filter(f => f.type.startsWith('image/')), vids = files.filter(f => f.type.startsWith('video/'));
   const auds = files.filter(f => !f.type.startsWith('video/') && !f.type.startsWith('image/') && isAudioFile(f));
-  if (auds.length){ loadAudioList(auds); if (!imgs.length && !vids.length) return; }
+  if (auds.length){ addAudioFiles(auds); if (!imgs.length && !vids.length) return; }
   if (!imgs.length && !vids.length){ ui.dropNote('Nothing usable in that drop (audio, photos or videos).'); return; }
   if (imgs.length){ media.photo.files = imgs; S.photoFolder = {name:label, count:imgs.length}; loadPhoto(pickRandom(imgs)); }
   if (vids.length){ media.video.files = vids; S.videoFolder = {name:label, count:vids.length}; loadVideoFile(pickRandom(vids)); }
@@ -1991,9 +2093,10 @@ function adoptDropped(files, label){
 let dragDepth = 0;
 const hasFiles = e => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
 addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; ui.dropOverlay.style.display = 'flex'; });
-addEventListener('dragover', e => { e.preventDefault(); });
-addEventListener('dragleave', e => { dragDepth = Math.max(0, dragDepth-1); if (!dragDepth) ui.dropOverlay.style.display = 'none'; });
+addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });   // file drags only: an internal drag (playlist reorder) must not become a drop target
+addEventListener('dragleave', e => { if (!hasFiles(e)) return; dragDepth = Math.max(0, dragDepth-1); if (!dragDepth) ui.dropOverlay.style.display = 'none'; });
 addEventListener('drop', async e => {
+  if (!hasFiles(e)) return;
   e.preventDefault(); dragDepth = 0; ui.dropOverlay.style.display = 'none';
   const dt = e.dataTransfer; if (!dt) return;
   // entries must be read synchronously, before the first await
@@ -2014,7 +2117,7 @@ addEventListener('drop', async e => {
 let lastFrameTime = performance.now(), prevBassRms = 0, prevMidEnergy = 0, lastHitTime = 0, clickAvg = 0, kickHoldUntil = 0, kickStr = 0;
 let hitCount = 0, percCount = 0, lastPercAt = 0, midAvg = 0, percHoldUntil = 0, percStr = 0; const midRecent = []; const bassRecent = [], clickRecent = []; let PERC_T0 = 1.5, PERC_CLICK_W = 0.8, PERC_K = 1.6, kickWinOn = false, kickWinEnd = 0, kickWinMax = 0, kickBase = 3.0; const kickWinHist = []; const dbgHist = {sub:[], click:[], mid:[], kick:[]};
 const lowEnergyHistory = [];
-let bassEnv = 0, midEnv = 0, hitEnv = 0, trebleEnv = 0, trebleAvg = 0, lastTrebleAt = 0, trebleStr = 0, trebleHoldUntil = 0; const trebleRecent = [];
+let bassEnv = 0, midEnv = 0, hitEnv = 0, trebleEnv = 0, trebleAvg = 0, trebleCount = 0, lastTrebleAt = 0, trebleStr = 0, trebleHoldUntil = 0; const trebleRecent = [];
 let scopePeak = 0, surgeT = 0, genTime = 0, spinAngle = 0, spinKickVel = 0, hueAcc = 0, seedGen = 1;
 let fpsFrames = 0, fpsLast = performance.now();
 
@@ -2102,7 +2205,7 @@ function frame(){
     let trLow = trebleE; for (let i=0;i<trebleRecent.length;i++) if (trebleRecent[i] < trLow) trLow = trebleRecent[i];
     trebleRecent.push(trebleE); if (trebleRecent.length > 4) trebleRecent.shift();
     const fluxT = (trebleE-trLow)/(trebleAvg+0.01), sensT = Math.pow(2, 1.5-3*P.trebleSens);   // own sensitivity, wider range: 1 at 0.5, ~0.66 at the 0.7 default, 0.35 at max
-    if (now-lastTrebleAt > 90 && fluxT > PERC_T0*sensT){ trebleHit = true; lastTrebleAt = now; trebleStr = Math.min(1.2, (0.45+0.55*Math.min(2, fluxT/(PERC_T0*sensT)-1))*0.7*gain); trebleHoldUntil = now+45; }
+    if (now-lastTrebleAt > 90 && fluxT > PERC_T0*sensT){ trebleHit = true; trebleCount++; lastTrebleAt = now; trebleStr = Math.min(1.2, (0.45+0.55*Math.min(2, fluxT/(PERC_T0*sensT)-1))*0.7*gain); trebleHoldUntil = now+45; }
     if (ui.dbgOn){
       const H = dbgHist; H.sub.push(bassRms); H.click.push(clickRms); H.mid.push(midEnergy); H.kick.push(kickKind || (percHit ? 3 : 0));
       if (H.sub.length > 240) for (const k in H) H[k].shift();
@@ -2214,7 +2317,7 @@ function frame(){
     pass(16*glow, acc, 0.30, nSeg); pass(5, acc, 0.85, nSeg); pass(1.8, [1,1,1], 0.9, nSeg);
     gl.disable(gl.BLEND);
   } else if (S.scene === 'shatter' && shatterProg){
-    const text = (S.shatterText.trim() || liveLabel()).toUpperCase().slice(0, 40);
+    const text = S.shatterText.trim().toUpperCase().slice(0, 40);   // blank = zero particles: the scene is cleared to black and nothing is drawn
     const step = Math.round(6 - E.detail*4);   // 6 (sparse) .. 2 (dense)
     buildShatter(text, Math.max(2, step));
     const W = renderW, H = renderH, k2 = 0.3 + 1.4*E.scale, txScale = W*0.72*k2, tyScale = txScale*(220/900), ox = W/2 - txScale/2, oy = H/2 - tyScale/2;
@@ -2237,7 +2340,7 @@ function frame(){
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); gl.drawArrays(gl.POINTS, 0, shN); gl.disable(gl.BLEND); gl.bindVertexArray(vao);
   } else if (S.scene === 'scroll' && scrollProg){
     const dir = S.scrollDir, fill = dir === 'diag1' || dir === 'diag2' || dir === 'fillH' || dir === 'fillV';
-    const text = (S.scrollText.trim() || liveLabel()).toUpperCase().slice(0, 40);
+    const text = S.scrollText.trim().toUpperCase().slice(0, 40);   // blank = an all-black atlas, so only the background is drawn (atlas width >= 8 and the period guard below keep it finite)
     buildScrollAtlas(text, fill ? E.kerning : 0);
     const W = renderW, H = renderH, kS = 0.2 + 1.6*E.scale, diff = E.detail*2, lead = fill ? E.leading : 0;
     let mode = 0, rows = 1, pitch = 1, Fb, period, ang = 0;
@@ -2456,7 +2559,7 @@ let presetSel = null;
 let presetLoaded = null;   // slot last recalled (applied); presetSel is only the slot you clicked. Not persisted: it claims nothing after a reload.
 function snapshotLook(){
   const p = {}; CONTROLS.forEach(c => { if (c.group !== 'audio') p[c.id] = P[c.id]; });
-  return {P:p, scene:S.scene, source:S.source, genStyle:S.genStyle, lensStyle:S.lensStyle, scrollDir:S.scrollDir, textFont:S.textFont, asciiSet:S.asciiSet, palette:S.palette, scopeColor:S.scopeColor, scopeGridColor:S.scopeGridColor, inkImage:S.inkImage, stages:Object.assign({}, S.stages), palAuto:S.palAuto, palRate:S.palRate, macros:JSON.parse(JSON.stringify(macros)), lfos:serializeLfos()};
+  return {P:p, scene:S.scene, source:S.source, genStyle:S.genStyle, lensStyle:S.lensStyle, scrollDir:S.scrollDir, textFont:S.textFont, shatterText:S.shatterText, scrollText:S.scrollText, asciiSet:S.asciiSet, palette:S.palette, scopeColor:S.scopeColor, scopeGridColor:S.scopeGridColor, inkImage:S.inkImage, stages:Object.assign({}, S.stages), palAuto:S.palAuto, palRate:S.palRate, macros:JSON.parse(JSON.stringify(macros)), lfos:serializeLfos()};
 }
 function applyLook(d){
   if (!d || typeof d !== 'object') return false;
@@ -2469,6 +2572,8 @@ function applyLook(d){
   if (d.lensStyle >= 0 && d.lensStyle < LENS_STYLES.length) S.lensStyle = d.lensStyle;
   if (SCROLL_DIRS.some(x => x[0] === d.scrollDir)) S.scrollDir = d.scrollDir;
   if (TEXT_FONTS.some(x => x[0] === d.textFont)) S.textFont = d.textFont;
+  if (typeof d.shatterText === 'string') S.shatterText = d.shatterText.slice(0, 40);   // '' applies (black screen); presets saved before text was stored leave the live text alone
+  if (typeof d.scrollText === 'string') S.scrollText = d.scrollText.slice(0, 40);
   if (ASCII_SETS.some(x => x[0] === d.asciiSet)) S.asciiSet = d.asciiSet;
   if (PALETTES[d.palette]) S.palette = d.palette;
   if (typeof d.scopeColor === 'string' && (d.scopeColor === '' || /^#[0-9a-f]{6}$/i.test(d.scopeColor))) S.scopeColor = d.scopeColor;
@@ -2646,7 +2751,7 @@ function cleanMacros(m){   // always returns exactly NMACROS faders with valid t
   const o = {v:[], t:[]}; if (!m || typeof m !== 'object') m = {};
   for (let i = 0; i < NMACROS; i++){
     o.v[i] = Array.isArray(m.v) && typeof m.v[i] === 'number' ? clamp(m.v[i], 0, 1) : 0;
-    o.t[i] = (Array.isArray(m.t) && Array.isArray(m.t[i]) ? m.t[i] : []).filter(x => x && CTL[x.id]).map(x => ({id:x.id, lo:clamp(+x.lo||0,0,1), hi:clamp(x.hi===undefined?1:+x.hi,0,1)}));
+    o.t[i] = (Array.isArray(m.t) && Array.isArray(m.t[i]) ? m.t[i] : []).filter(x => x && CTL[x.id] && !CTL[x.id].noMacro).map(x => ({id:x.id, lo:clamp(+x.lo||0,0,1), hi:clamp(x.hi===undefined?1:+x.hi,0,1)}));
   }
   return o;
 }
@@ -2823,8 +2928,8 @@ function buildM3UI(){
       tb.textContent = 'Targets ('+macros.t[i].length+') '+(body.style.display === 'none' ? '▸' : '▾'); body.innerHTML = '';
       macros.t[i].forEach((tg, k) => {
         const line = el('div', {className:'mt'}); const sel = el('select');
-        CONTROLS.forEach(c => sel.appendChild(new Option(ctlLabel(c), c.id))); sel.value = tg.id;
-        const lo = el('input', {type:'number', min:0, max:100, step:1, value:Math.round(tg.lo*100)}), hi = el('input', {type:'number', min:0, max:100, step:1, value:Math.round(tg.hi*100)});
+        CONTROLS.forEach(c => { if (!c.noMacro) sel.appendChild(new Option(ctlLabel(c), c.id)); }); sel.value = tg.id;
+        const lo = el('input', {type:'number', min:0, max:100, step:1, value:Math.round(tg.lo*100), title:'Low end (%)'}), hi = el('input', {type:'number', min:0, max:100, step:1, value:Math.round(tg.hi*100), title:'High end (%)'});
         const x = el('button', {textContent:'×'});
         sel.onchange = () => { tg.id = sel.value; saveMacros(); };
         lo.onchange = () => { tg.lo = clamp((+lo.value||0)/100, 0, 1); saveMacros(); }; hi.onchange = () => { tg.hi = clamp((+hi.value||0)/100, 0, 1); saveMacros(); };
@@ -3044,7 +3149,7 @@ resize();
 // expose a small hook for automated checks (no effect on normal use)
 // flush debounced saves if the page is closed / reloaded right after a change
 addEventListener('pagehide', () => { try { saveState(); jset(MACRO_KEY, macros); jset(LFO_KEY, serializeLfos()); } catch(e){} });
-window.__copperlight = {midiMsg:(d,ts)=>handleMidiBytes(d, ts===undefined?performance.now():ts), presets:()=>presets, ccMap:()=>ccMap, macros:()=>macros, bpm:()=>midiBpm, P, E, S, gl, setControl, shuffleLook, forceKick:0, hits:()=>hitCount, lfos:()=>lfos, tempo:()=>tempo, midiTest:{setAccess:a=>{midiAccess=a; refreshMidiInputs();}, desired:()=>midiDesired}, setCcMode:m=>{ccMode=m; Object.keys(ccPick).forEach(k=>delete ccPick[k]);}, ccMode:()=>ccMode, curBpm:()=>currentBpm(), percs:()=>percCount, setPerc:(t,w)=>{PERC_T0=t;PERC_CLICK_W=w;}, cur:()=>({photo:photoCurFile&&photoCurFile.name, video:vidCurFile&&vidCurFile.name, vA:vidA.currentSrc.slice(-12), vReady:vidA.readyState, vBReady:vidB.readyState, nxt:vidNextFile&&vidNextFile.name}), programs: {warpProg, trailProg, finalProg, genProg}};
+window.__copperlight = {audio:()=>({names:audioList.map(f=>f.name), idx:audioIdx, repeat:audioRepeat, el:mediaEl, live:fileLive()}), midiMsg:(d,ts)=>handleMidiBytes(d, ts===undefined?performance.now():ts), presets:()=>presets, ccMap:()=>ccMap, macros:()=>macros, bpm:()=>midiBpm, P, E, S, gl, setControl, shuffleLook, forceKick:0, hits:()=>hitCount, lfos:()=>lfos, tempo:()=>tempo, midiTest:{setAccess:a=>{midiAccess=a; refreshMidiInputs();}, desired:()=>midiDesired}, setCcMode:m=>{ccMode=m; Object.keys(ccPick).forEach(k=>delete ccPick[k]);}, ccMode:()=>ccMode, curBpm:()=>currentBpm(), percs:()=>percCount, trebles:()=>trebleCount, nodes:()=>({ctx:audioCtx, inGainNode, dryBus, analyser, recordDest, gainMem}), meter:()=>ui.mBars.map(m => m.lvl), setPerc:(t,w)=>{PERC_T0=t;PERC_CLICK_W=w;}, cur:()=>({photo:photoCurFile&&photoCurFile.name, video:vidCurFile&&vidCurFile.name, vA:vidA.currentSrc.slice(-12), vReady:vidA.readyState, vBReady:vidB.readyState, nxt:vidNextFile&&vidNextFile.name}), programs: {warpProg, trailProg, finalProg, genProg}};
 requestAnimationFrame(frame);
 })();
 </script>
