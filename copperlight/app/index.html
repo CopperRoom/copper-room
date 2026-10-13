@@ -1371,15 +1371,32 @@ function connectSource(node){
 function stopDisplayStream(){ if (displayStream){ try { displayStream.getTracks().forEach(t=>t.stop()); } catch(e){} displayStream = null; } }
 function stopMicStream(){ if (micStream){ try { micStream.getTracks().forEach(t=>t.stop()); } catch(e){} micStream = null; } ui.micRow.style.display = 'none'; }
 function setAudioStatus(t){ ui.audioStatus.textContent = t; }
+// What the browser actually delivered for a captured track: "Raw: echo off, AGC off, NS off, 2 ch, 48 kHz", plus a plain warning for any processing left on.
+function rawAudioReport(track){
+  const st = (track && track.getSettings) ? track.getSettings() : {};
+  console.log('[system audio] track settings', st);
+  const parts = [], warn = [];
+  [['echoCancellation', 'echo', 'echo cancellation'], ['autoGainControl', 'AGC', 'auto gain'], ['noiseSuppression', 'NS', 'noise suppression']].forEach(([k, short, long]) => {
+    if (st[k] === true){ parts.push(short+' on'); warn.push('browser did not disable '+long); } else if (st[k] === false) parts.push(short+' off'); else parts.push(short+' not reported');
+  });
+  parts.push(st.channelCount ? st.channelCount+' ch'+(st.channelCount === 1 ? ' (mono)' : '') : 'channels not reported');
+  const sr = st.sampleRate || (audioCtx && audioCtx.sampleRate); if (sr) parts.push(String(+(sr/1000).toFixed(1))+' kHz'+(st.sampleRate ? '' : ' (context)'));   // 48 kHz, 44.1 kHz
+  return 'Raw: '+parts.join(', ')+'.'+(warn.length ? ' Note: '+warn.join('; ')+'.' : '');
+}
 async function useSystemAudio(){
   ensureAudioCtx(); stopMicStream();
   try {
-    const stream = await navigator.mediaDevices.getDisplayMedia({video:true, audio:true});
+    // Raw audio: without these the browser may run its voice processing (echo cancellation, noise suppression, auto gain) on the share,
+    // which can downmix to mono, lower the level and let it sag over time. channelCount is only a preference.
+    const raw = {echoCancellation:false, noiseSuppression:false, autoGainControl:false, channelCount:{ideal:2}};
+    let stream;
+    try { stream = await navigator.mediaDevices.getDisplayMedia({video:true, audio:raw}); }
+    catch(e){ if (e.name !== 'TypeError') throw e; stream = await navigator.mediaDevices.getDisplayMedia({video:true, audio:true}); }   // a browser that rejects audio constraints on a share (checked before any prompt)
     const at = stream.getAudioTracks(); stream.getVideoTracks().forEach(t=>t.stop());
     if (!at.length){ stream.getTracks().forEach(t=>t.stop()); setAudioStatus('No audio came through that share — use Chrome or Opera and tick "share audio".'); return; }
     stopDisplayStream(); displayStream = stream;
     connectSource(audioCtx.createMediaStreamSource(stream)); ui.setSrc('sys');
-    setAudioStatus('System/tab audio connected ('+(at[0].label||'shared audio')+').'); ui.fileRow.style.display = 'none';
+    setAudioStatus('System audio connected ('+(at[0].label||'shared audio')+'). '+rawAudioReport(at[0])); ui.fileRow.style.display = 'none';
     at[0].addEventListener('ended', () => { if (displayStream === stream){ displayStream = null; setAudioStatus('System audio disconnected.'); ui.setDot('audio', false); ui.setSrc(null); } });
   } catch(err){ setAudioStatus(err.name === 'NotAllowedError' ? 'System audio capture cancelled.' : 'System audio failed: '+err.message); }
 }
