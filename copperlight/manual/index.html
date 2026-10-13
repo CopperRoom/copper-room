@@ -143,9 +143,10 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
 </tbody>
 </table></div>
 <p>Higher values react to softer hits but also produce more false triggers. If the visuals miss kicks, raise the slider a little; if they fire on non-kick sounds, lower it.</p>
+<p>Kick detection listens to the bass range. On tracks where the bassline is as punchy as the kick, the kick pulse may also fire on bass notes between the kicks. Lowering <strong>Kick Sensitivity</strong> makes that less likely, but on some tracks it also means more kicks are missed.</p>
 <p><strong>Kick Debug</strong> shows a small strip with the detector's activity, which helps when you are setting up a new input or room. The three sensitivity sliders and Input Gain describe your audio setup, not a look, so presets do not store them.</p>
 <h3 id="input-gain">Input Gain</h3>
-<p><strong>Input Gain</strong> boosts or reduces the signal Copperlight listens to, from -12 dB to +24 dB (0 dB leaves it unchanged). Use it when a source is too quiet for the sensitivity sliders to catch the hits, for example a desktop app playing at low volume. Watch the level meter, which shows the level after the gain: on loud passages it should reach well into the upper half. Input Gain only changes what the visuals hear. It does not change the sound you hear or the audio in a recording. Copperlight remembers a separate gain for Mic, System and File.</p>
+<p><strong>Input Gain</strong> boosts or reduces the signal Copperlight listens to, from -12 dB to +24 dB (0 dB leaves it unchanged). Use it when a source is too quiet for the sensitivity sliders to catch the hits, for example a desktop app playing at low volume. Watch the level meter, which shows the level after the gain: on loud passages it should reach about -10 dB. Apps play at different levels, so the same setting does not suit every source; in testing, the Spotify desktop app needed about +18 dB to reach the level a browser tab playing the same song had at 0 dB. Input Gain only changes what the visuals hear. It does not change the sound you hear or the audio in a recording. Copperlight remembers a separate gain for Mic, System and File.</p>
 <h2 id="modes">Modes</h2>
 <p>The <strong>Mode</strong> section chooses the main picture. Ten pads (or the drop-down behind them) switch between the modes. Everything else in the panel (Stages, Frame, Lens, Master, Color) is applied on top of whichever mode is running.</p>
 <p>Three sliders are shared by most modes, but they mean something different in each one: <strong>Scale</strong>, <strong>Speed</strong> and <strong>Detail</strong>. This is deliberate, and each mode's entry below says what they do there. The panel also shows a one-line hint under the controls for the current mode. Mode-specific sliders appear only when their mode is active.</p>
@@ -671,7 +672,7 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
 </tr>
 <tr>
 <td>The visuals barely react, even with the sensitivities at maximum</td>
-<td>The source may be too quiet. Raise <strong>Input Gain</strong> until the level meter reaches the upper half on loud passages, and check the volume of the source itself (for example the player's volume slider).</td>
+<td>The source may be too quiet. Raise <strong>Input Gain</strong> until the level meter reaches about -10 dB on loud passages, and check the volume of the source itself (for example the player's volume slider).</td>
 </tr>
 <tr>
 <td>Reaction is too weak or too strong</td>

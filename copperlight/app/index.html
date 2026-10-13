@@ -2112,15 +2112,27 @@ const hasFiles = e => e.dataTransfer && Array.from(e.dataTransfer.types || []).i
 addEventListener('dragenter', e => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; ui.dropOverlay.style.display = 'flex'; });
 addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });   // file drags only: an internal drag (playlist reorder) must not become a drop target
 addEventListener('dragleave', e => { if (!hasFiles(e)) return; dragDepth = Math.max(0, dragDepth-1); if (!dragDepth) ui.dropOverlay.style.display = 'none'; });
+async function filesFromHandle(h){   // File System Access handles: they work on file:// pages, where the old Entry API fails (Chromium gives file:// an opaque origin)
+  if (h.kind === 'file') return [await h.getFile()];
+  if (h.kind !== 'directory') return [];
+  let out = []; for await (const c of h.values()) out = out.concat(await filesFromHandle(c));
+  return out;
+}
 addEventListener('drop', async e => {
   if (!hasFiles(e)) return;
   e.preventDefault(); dragDepth = 0; ui.dropOverlay.style.display = 'none';
   const dt = e.dataTransfer; if (!dt) return;
   // entries must be read synchronously, before the first await
+  const handleP = dt.items ? Array.from(dt.items).filter(i => i.kind === 'file' && i.getAsFileSystemHandle).map(i => i.getAsFileSystemHandle()) : [];
   const entries = dt.items ? Array.from(dt.items).map(i => (i.webkitGetAsEntry ? i.webkitGetAsEntry() : null)).filter(Boolean) : [];
   const plain = Array.from(dt.files || []);
   let files = [], label = 'dropped files';
-  try {
+  try {   // newer handles first (Chromium; they also work from file://); the old Entry API as the fallback
+    const handles = (await Promise.all(handleP.map(p => p.catch(() => null)))).filter(Boolean);
+    for (const h of handles) files = files.concat(await filesFromHandle(h));
+    if (files.length && handles.length === 1 && handles[0].kind === 'directory') label = handles[0].name;
+  } catch(err){ files = []; console.warn('[drop] folder read failed (handles)', err); }
+  if (!files.length) try {
     if (entries.length){
       for (const en of entries) files = files.concat(await filesFromEntry(en));
       if (entries.length === 1 && entries[0].isDirectory) label = entries[0].name;
@@ -2131,10 +2143,35 @@ addEventListener('drop', async e => {
 });
 
 /* ---------------------------------------------------------------- frame loop */
+let detLog = null;   // headless harness: hit times on the audio clock, off unless a test turns it on
+/* DET-STATE-BEGIN (tools/detector-lab runs this block and DET-FRAME as-is; keep them self-contained) */
 let lastFrameTime = performance.now(), prevBassRms = 0, prevMidEnergy = 0, lastHitTime = 0, clickAvg = 0, kickHoldUntil = 0, kickStr = 0;
 let hitCount = 0, percCount = 0, lastPercAt = 0, midAvg = 0, percHoldUntil = 0, percStr = 0; const midRecent = []; const bassRecent = [], clickRecent = []; let PERC_T0 = 1.5, PERC_CLICK_W = 0.8, PERC_K = 1.6, kickWinOn = false, kickWinEnd = 0, kickWinMax = 0, kickBase = 3.0; const kickWinHist = []; const dbgHist = {sub:[], click:[], mid:[], kick:[]};
 const lowEnergyHistory = [];
 let bassEnv = 0, midEnv = 0, hitEnv = 0, trebleEnv = 0, trebleAvg = 0, trebleCount = 0, lastTrebleAt = 0, trebleStr = 0, trebleHoldUntil = 0; const trebleRecent = [];
+// Build 48a rev 2, DET_RELATIVE: every fixed detector constant (gate 0.04; floors 0.03, 0.004, 0.02, 0.01; dominance 0.01) is scaled by
+// s = programme peak / DET_PREF, the mix's recent peak relative to the tuning master (loud-master), so the look there is today's and other levels scale with
+// the whole mix, not with each band's own level. Off = the Build 50 detector, unchanged (detC returns the literal constant).
+const DET_RELATIVE = false;   // 48a rev 2 failed S1 and C (claude/build-48a-notes.md): off until João decides
+// DET_FLOAT: the kick detector's bass band is read as float, so Input Gain can no longer clip it; mid, click and treble stay 8-bit; every threshold exactly as in Build 50.
+const DET_FLOAT = true;
+const DET_PREF = 0.516;   // programme peak (broadband frame RMS tracker) on the tuning master: median over loud-master at native level (p10-p90 0.467-0.543)
+const DET_HALF = 2.0, DET_LONG_TAU = 6.0;   // programme peak: 2 s half-life, never below 2 x its 6 s level
+const DET_FLOOR = 1e-5, DET_GATE_FLOOR = 1e-4;   // absolute floors under the scaled constants: -100 dBFS (flux and steepness), -80 dBFS bass RMS (kick gate)
+const DET_SIL = 0.001, DET_SIL_HOLD = 0.5, DET_WARM = 0.75, DET_WARM_GATE = 0.0016;   // silence: mix under -60 dBFS for 0.5 s freezes the tracker; warm-up 0.75 s needs bass > -56 dBFS
+const detTr = {peak:DET_PREF/16, long:0, silentFor:0, warmLeft:DET_WARM, s:1};
+const detF = {}, detAllBytes = new Uint8Array(1024);
+function detRms(an, bytes, key){   // band RMS: 8-bit bytes as in Build 50, or float (no clipping above full scale): every band with DET_RELATIVE, the kick's bass band with DET_FLOAT
+  if (!DET_RELATIVE && !(DET_FLOAT && key === 'bass')){ an.getByteTimeDomainData(bytes); let s = 0; for (let i=0;i<bytes.length;i++){ const v=(bytes[i]-128)/128; s+=v*v; } return Math.sqrt(s/bytes.length); }
+  const f = detF[key] || (detF[key] = new Float32Array(bytes.length)); an.getFloatTimeDomainData(f); let s = 0; for (let i=0;i<f.length;i++) s += f[i]*f[i]; return Math.sqrt(s/f.length);
+}
+const detC = DET_RELATIVE ? (c, floor) => Math.max(c*detTr.s, floor) : c => c;   // a fixed constant, scaled to the programme (switch off: the constant itself)
+function detTrackProg(e, dt, dtScale){   // fast rise, 2 s half-life, never below 2 x the 6 s level
+  detTr.long += (e-detTr.long)*(1-Math.exp(-dt/DET_LONG_TAU));
+  if (e > detTr.peak) detTr.peak += (e-detTr.peak)*(1-Math.pow(0.5, dtScale)); else detTr.peak *= Math.pow(0.5, dt/DET_HALF);
+  detTr.peak = Math.max(detTr.peak, 2*detTr.long, DET_FLOOR);
+}
+/* DET-STATE-END */
 let scopePeak = 0, surgeT = 0, genTime = 0, spinAngle = 0, spinKickVel = 0, hueAcc = 0, seedGen = 1;
 let fpsFrames = 0, fpsLast = performance.now();
 
@@ -2161,31 +2198,30 @@ function frame(){
   // ---- audio analysis (prototype logic: bass-onset vs mid-onset dominance, rolling-std normalised) ----
   let hit = false, percHit = false, trebleHit = false;
   if (analyser){
-    bassAnalyser.getByteTimeDomainData(bassData); midAnalyser.getByteTimeDomainData(midData);
-    let sb = 0; for (let i=0;i<bassData.length;i++){ const v=(bassData[i]-128)/128; sb+=v*v; } const bassRms = Math.sqrt(sb/bassData.length);
-    let sm = 0; for (let i=0;i<midData.length;i++){ const v=(midData[i]-128)/128; sm+=v*v; } const midEnergy = Math.sqrt(sm/midData.length);
+    /* DET-FRAME-BEGIN */
+    const bassRms = detRms(bassAnalyser, bassData, 'bass'), midEnergy = detRms(midAnalyser, midData, 'mid');
     lowEnergyHistory.push(bassRms); if (lowEnergyHistory.length > 50) lowEnergyHistory.shift();
     const n = lowEnergyHistory.length; let lowAvg = 0; for (let i=0;i<n;i++) lowAvg += lowEnergyHistory[i]; lowAvg /= n;
     let vr = 0; for (let i=0;i<n;i++){ const d = lowEnergyHistory[i]-lowAvg; vr += d*d; } const lowStd = Math.sqrt(vr/n);
     const onset = Math.max(0, bassRms-prevBassRms), midOnset = Math.max(0, midEnergy-prevMidEnergy);
     prevBassRms = bassRms; prevMidEnergy = midEnergy;
-    const dominance = onset/(onset + midOnset*2.2 + 0.01);
+    const dominance = onset/(onset + midOnset*2.2 + detC(0.01, DET_FLOOR));
     const gain = E.react*2; // React 0.5 == prototype's default glow sensitivity of 1.0
     // ---- kick detector (one detector feeds shuffle, flash/warp re-seed and the bass envelope) ----
     // A kick = steep bass rise. With a click-band spike at the same moment the bar is lower; without one the rise must be much steeper,
     // so sustained bass notes (slow attack) and pads are rejected. Kick Sensitivity scales both bars; React does NOT affect detection.
-    clickAnalyser.getByteTimeDomainData(clickData);
-    let sc = 0; for (let i=0;i<clickData.length;i++){ const v=(clickData[i]-128)/128; sc+=v*v; } const clickRms = Math.sqrt(sc/clickData.length);
+    const clickRms = detRms(clickAnalyser, clickData, 'click');
     clickAvg += (clickRms-clickAvg)*0.05*dtScale;
     let clickLow = clickRms; for (let i=0;i<clickRecent.length;i++) if (clickRecent[i] < clickLow) clickLow = clickRecent[i];
     clickRecent.push(clickRms); if (clickRecent.length > 4) clickRecent.shift();
-    const clickFlux = (clickRms-clickLow)/(clickAvg+0.004);
+    const clickFlux = (clickRms-clickLow)/(clickAvg+detC(0.004, DET_FLOOR));
     let bassLow = bassRms; for (let i=0;i<bassRecent.length;i++) if (bassRecent[i] < bassLow) bassLow = bassRecent[i];
     bassRecent.push(bassRms); if (bassRecent.length > 4) bassRecent.shift();
-    const steep = (bassRms-bassLow)/(lowAvg+0.03);
+    const steep = (bassRms-bassLow)/(lowAvg+detC(0.03, DET_FLOOR));
     const thr = Math.pow(2, 1-2*P.kickSens);
     let kickKind = 0;
-    if (bassRms > 0.04 && now-lastHitTime > 140){
+    const kickGate = bassRms > detC(0.04, DET_GATE_FLOOR) && (!DET_RELATIVE || detTr.warmLeft <= 0 || bassRms > DET_WARM_GATE);
+    if (kickGate && now-lastHitTime > 140){
       if (steep > 0.4*thr && clickFlux > 1.2*thr) kickKind = 1;                       // bass rise + click transient
       else if (steep > 0.6*thr && dominance > 0.5) kickKind = 2;                      // clickless: needs a steeper, bass-led rise
     }
@@ -2198,7 +2234,7 @@ function frame(){
     midAvg += (midEnergy-midAvg)*0.05*dtScale;
     let midLow = midEnergy; for (let i=0;i<midRecent.length;i++) if (midRecent[i] < midLow) midLow = midRecent[i];
     midRecent.push(midEnergy); if (midRecent.length > 4) midRecent.shift();
-    const fluxMid = (midEnergy-midLow)/(midAvg+0.02);
+    const fluxMid = (midEnergy-midLow)/(midAvg+detC(0.02, DET_FLOOR));
     const flux = Math.max(fluxMid, clickFlux*PERC_CLICK_W);
     const sensF = Math.pow(2, 1-2*P.midSens);   // 1 at the default 0.5; lower = more sensitive
     const thrP = PERC_T0*sensF;
@@ -2216,12 +2252,11 @@ function frame(){
       percStr = Math.min(1.2, (0.45 + 0.55*Math.min(2, flux/thrNow - 1))*0.7*gain); percHoldUntil = now+45;
     }
     // ---- treble-hit detector (same pattern as the percussive-mid one: rise vs slow baseline, refractory, pulse) ----
-    trebleAnalyser.getByteTimeDomainData(trebleData);
-    let st2 = 0; for (let i=0;i<trebleData.length;i++){ const v=(trebleData[i]-128)/128; st2+=v*v; } const trebleE = Math.sqrt(st2/trebleData.length);
+    const trebleE = detRms(trebleAnalyser, trebleData, 'treble');
     trebleAvg += (trebleE-trebleAvg)*0.05*dtScale;
     let trLow = trebleE; for (let i=0;i<trebleRecent.length;i++) if (trebleRecent[i] < trLow) trLow = trebleRecent[i];
     trebleRecent.push(trebleE); if (trebleRecent.length > 4) trebleRecent.shift();
-    const fluxT = (trebleE-trLow)/(trebleAvg+0.01), sensT = Math.pow(2, 1.5-3*P.trebleSens);   // own sensitivity, wider range: 1 at 0.5, ~0.66 at the 0.7 default, 0.35 at max
+    const fluxT = (trebleE-trLow)/(trebleAvg+detC(0.01, DET_FLOOR)), sensT = Math.pow(2, 1.5-3*P.trebleSens);   // own sensitivity, wider range: 1 at 0.5, ~0.66 at the 0.7 default, 0.35 at max
     if (now-lastTrebleAt > 90 && fluxT > PERC_T0*sensT){ trebleHit = true; trebleCount++; lastTrebleAt = now; trebleStr = Math.min(1.2, (0.45+0.55*Math.min(2, fluxT/(PERC_T0*sensT)-1))*0.7*gain); trebleHoldUntil = now+45; }
     if (ui.dbgOn){
       const H = dbgHist; H.sub.push(bassRms); H.click.push(clickRms); H.mid.push(midEnergy); H.kick.push(kickKind || (percHit ? 3 : 0));
@@ -2232,6 +2267,14 @@ function frame(){
       H.kick.forEach((k,i)=>{ if (k === 3){ g.fillStyle = '#4de'; g.fillRect(i,34,2,22); } else if (k){ g.fillStyle = k===1 ? '#fff' : '#ee4'; g.fillRect(i,0,2,56); } });
       g.fillStyle = '#999'; g.font = '9px sans-serif'; g.fillText('sub · click · mid   kick = white/yellow   hit = cyan', 3, 9);
     }
+    if (DET_RELATIVE){   // the programme tracker moves after this frame's tests, so each test compares against the mix before the hit
+      const eAll = detRms(analyser, detAllBytes, 'all');   // whole mix, post Input Gain, float
+      if (eAll < DET_SIL) detTr.silentFor += dt; else { if (detTr.silentFor >= DET_SIL_HOLD) detTr.warmLeft = DET_WARM; detTr.silentFor = 0; }   // after silence: warm up again
+      if (detTr.silentFor < DET_SIL_HOLD){ detTrackProg(eAll, dt, dtScale); detTr.warmLeft = Math.max(0, detTr.warmLeft - dt); }   // frozen in silence
+      detTr.s = detTr.peak/DET_PREF;
+    }
+    /* DET-FRAME-END */
+    if (detLog){ const at = mediaEl ? mediaEl.currentTime : now/1000; if (hit) detLog.kick.push(at); if (percHit) detLog.mid.push(at); if (trebleHit) detLog.treble.push(at); }   // test hook only (window.__copperlight.detLog)
     // meters
     analyserL.getByteTimeDomainData(dataL); analyserR.getByteTimeDomainData(dataR);
     let sqL = 0, sqR = 0; for (let i=0;i<dataL.length;i++){ const vl=(dataL[i]-128)/128, vr=(dataR[i]-128)/128; sqL+=vl*vl; sqR+=vr*vr; }
@@ -3166,7 +3209,7 @@ resize();
 // expose a small hook for automated checks (no effect on normal use)
 // flush debounced saves if the page is closed / reloaded right after a change
 addEventListener('pagehide', () => { try { saveState(); jset(MACRO_KEY, macros); jset(LFO_KEY, serializeLfos()); } catch(e){} });
-window.__copperlight = {audio:()=>({names:audioList.map(f=>f.name), idx:audioIdx, repeat:audioRepeat, el:mediaEl, live:fileLive()}), midiMsg:(d,ts)=>handleMidiBytes(d, ts===undefined?performance.now():ts), presets:()=>presets, ccMap:()=>ccMap, macros:()=>macros, bpm:()=>midiBpm, P, E, S, gl, setControl, shuffleLook, forceKick:0, hits:()=>hitCount, lfos:()=>lfos, tempo:()=>tempo, midiTest:{setAccess:a=>{midiAccess=a; refreshMidiInputs();}, desired:()=>midiDesired}, setCcMode:m=>{ccMode=m; Object.keys(ccPick).forEach(k=>delete ccPick[k]);}, ccMode:()=>ccMode, curBpm:()=>currentBpm(), percs:()=>percCount, trebles:()=>trebleCount, nodes:()=>({ctx:audioCtx, inGainNode, dryBus, analyser, recordDest, gainMem}), meter:()=>ui.mBars.map(m => m.lvl), setPerc:(t,w)=>{PERC_T0=t;PERC_CLICK_W=w;}, cur:()=>({photo:photoCurFile&&photoCurFile.name, video:vidCurFile&&vidCurFile.name, vA:vidA.currentSrc.slice(-12), vReady:vidA.readyState, vBReady:vidB.readyState, nxt:vidNextFile&&vidNextFile.name}), programs: {warpProg, trailProg, finalProg, genProg}};
+window.__copperlight = {audio:()=>({names:audioList.map(f=>f.name), idx:audioIdx, repeat:audioRepeat, el:mediaEl, live:fileLive()}), midiMsg:(d,ts)=>handleMidiBytes(d, ts===undefined?performance.now():ts), presets:()=>presets, ccMap:()=>ccMap, macros:()=>macros, bpm:()=>midiBpm, P, E, S, gl, setControl, shuffleLook, forceKick:0, hits:()=>hitCount, lfos:()=>lfos, tempo:()=>tempo, midiTest:{setAccess:a=>{midiAccess=a; refreshMidiInputs();}, desired:()=>midiDesired}, setCcMode:m=>{ccMode=m; Object.keys(ccPick).forEach(k=>delete ccPick[k]);}, ccMode:()=>ccMode, curBpm:()=>currentBpm(), percs:()=>percCount, trebles:()=>trebleCount, detLog:on => { detLog = on ? {kick:[], mid:[], treble:[]} : null; return detLog; }, detRelative:DET_RELATIVE, detFloat:DET_FLOAT, nodes:()=>({ctx:audioCtx, inGainNode, dryBus, analyser, recordDest, gainMem}), meter:()=>ui.mBars.map(m => m.lvl), setPerc:(t,w)=>{PERC_T0=t;PERC_CLICK_W=w;}, cur:()=>({photo:photoCurFile&&photoCurFile.name, video:vidCurFile&&vidCurFile.name, vA:vidA.currentSrc.slice(-12), vReady:vidA.readyState, vBReady:vidB.readyState, nxt:vidNextFile&&vidNextFile.name}), programs: {warpProg, trailProg, finalProg, genProg}};
 requestAnimationFrame(frame);
 })();
 </script>
