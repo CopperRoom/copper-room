@@ -319,7 +319,10 @@ const CONTROLS = [
   {id:'bright',  label:'Bright',  min:-1, max:1, step:0.01, def:0,    group:'master', tip:'Exposure. + lifts toward white, - darkens'},
   {id:'decay',   label:'Decay',   min:0,  max:1, step:0.01, def:0.5,  group:'master', tip:'How slowly reactions fall back'},
   {id:'inputGain',label:'Input Gain',min:-12,max:24,step:0.5,def:0,group:'audio',unit:'dB',noMacro:true,tip:'Boosts or reduces what Copperlight listens to. Raise it when a source is too quiet for the sensitivity sliders. Does not change the sound you hear or the audio in a recording.'},
-  {id:'kickSens',label:'Kick Sensitivity',min:0,max:1,step:0.01,def:0.25,group:'audio',tip:'Higher catches softer kicks (and more false triggers). Lower = only clear kicks'},
+  {id:'kickSens',label:'Kick Sensitivity',min:0,max:1,step:0.01,def:0.15,group:'audio',tip:'Higher catches softer kicks (and more false triggers). Lower = only clear kicks'},
+  // Kick Band: the filter in front of the kick detector's bass band (shape in S.kickBand). inPreset: stored with presets although in the audio group; log: slider, MIDI and macros map 0..1 logarithmically
+  {id:'kickFreq',label:'Kick Frequency',min:30,max:400,step:1,def:120,group:'audio',unit:'Hz',log:true,inPreset:true,tip:'Where the kick detector listens. Band-Pass: a band centred on this frequency (default 120 Hz). Low-Pass: everything below it. Stored per preset'},
+  {id:'kickLevel',label:'Kick Level',min:-12,max:24,step:0.5,def:0,group:'audio',unit:'dB',inPreset:true,tip:'Level of the kick band going into the detector. A narrow band is quieter, so raise this until kicks show again. Stored per preset'},
   {id:'trebleSens', label:'Treble Sensitivity', min:0,max:1,step:0.01,def:0.7,group:'audio',tip:'Hi-hats and top-end hits (drives Typography Shatter scatter). Higher reacts to softer hits (and more false triggers)'},
   {id:'midSens', label:'Mid Sensitivity', min:0,max:1,step:0.01,def:0.5, group:'audio',tip:'Snares, claps, stabs. Higher reacts to softer hits (and more false triggers). Sustained vocals/pads are ignored'},
   // frame
@@ -378,7 +381,7 @@ CONTROLS.forEach(c => { P[c.id] = c.def; E[c.id] = c.def; });
 
 const LENS_STYLES = ['Ribs','Fan','Anamorphic','Melt','Glitch','Pixels','Fly Eye','Kaleidoscope','Heat Haze'];
 const GEN_STYLES  = [['contours','Contours'],['noise','Noise']];
-const S = { scene:'videosynth', source:'generator', genStyle:'contours', modeFlash:{}, modeHeat:{}, heatBase:0.35, scopeColor:'', scopeGridColor:'', lensStyle:0, palette:'dive', inkImage:'off',
+const S = { scene:'videosynth', source:'generator', genStyle:'contours', modeFlash:{}, modeHeat:{}, heatBase:0.35, scopeColor:'', scopeGridColor:'', lensStyle:0, palette:'dive', inkImage:'off', kickBand:'bp',
   stages:{feedback:false, displacement:false, glitch:false, colorize:false, ascii:false, scanlines:false, chromatic:false, vhs:false, static:false},
   palAuto:false, palRate:16, shapeAuto:false, shapeRate:8, scopeGrid:true, shatterText:'Copperlight', scrollText:'BE KIND', scrollDir:'left', textFont:'sans', scrollAccent:false, scrollVanish:false, asciiSet:'classic', photoAuto:false, photoRate:4, videoAuto:false, videoRate:4, photoFolder:null, videoFolder:null };
 // fixed order (same as prototype minus Vignette, which is now the universal Vignette)
@@ -1340,9 +1343,11 @@ function ensureAudioCtx(){
     dataL = new Uint8Array(analyserL.frequencyBinCount); dataR = new Uint8Array(analyserR.frequencyBinCount);
     splitter.connect(analyserL, 0); splitter.connect(analyserR, 1);
     // real filters, not FFT bins — much cleaner kick/mid envelopes (same as prototype)
-    bassFilter = audioCtx.createBiquadFilter(); bassFilter.type = 'lowpass'; bassFilter.frequency.value = 150; bassFilter.Q.value = 0.7;
+    // Kick Band: shape (S.kickBand), Kick Frequency and Kick Level. Defaults: bandpass 120 Hz, Q 1.5, gain 1. Low-Pass 150 Hz, Q 0.7 (Web Audio reads a lowpass Q in dB) = the filter from before Kick Band
+    bassFilter = audioCtx.createBiquadFilter(); bassFilter.type = S.kickBand === 'bp' ? 'bandpass' : 'lowpass'; bassFilter.frequency.value = P.kickFreq; bassFilter.Q.value = S.kickBand === 'bp' ? KB_Q_BP : KB_Q_LP;
     bassAnalyser = audioCtx.createAnalyser(); bassAnalyser.fftSize = 1024; bassAnalyser.smoothingTimeConstant = 0;
-    bassData = new Uint8Array(bassAnalyser.fftSize); bassFilter.connect(bassAnalyser);
+    bassData = new Uint8Array(bassAnalyser.fftSize);
+    kickGain = audioCtx.createGain(); kickGain.gain.value = dbToGain(P.kickLevel); bassFilter.connect(kickGain); kickGain.connect(bassAnalyser);   // Kick Level, between the filter and the analyser only
     midFilterHP = audioCtx.createBiquadFilter(); midFilterHP.type = 'highpass'; midFilterHP.frequency.value = 300;
     midFilterLP = audioCtx.createBiquadFilter(); midFilterLP.type = 'lowpass'; midFilterLP.frequency.value = 2000;
     midAnalyser = audioCtx.createAnalyser(); midAnalyser.fftSize = 1024; midAnalyser.smoothingTimeConstant = 0;
@@ -1509,13 +1514,18 @@ function section(title, collapsed){
   s.appendChild(hd); s.appendChild(bd); panel.appendChild(s); sections.push(s); return bd;
 }
 const sliderEls = {};
-function fmtVal(c, v){ if (c.unit === 'dB') return (v > 0 ? '+' : '')+(v % 1 ? v.toFixed(1) : v.toFixed(0))+' dB'; return c.step >= 1 ? String(Math.round(v)) : v.toFixed(2); }
+function fmtVal(c, v){ if (c.unit === 'dB') return (v > 0 ? '+' : '')+(v % 1 ? v.toFixed(1) : v.toFixed(0))+' dB'; if (c.unit === 'Hz') return Math.round(v)+' Hz'; return c.step >= 1 ? String(Math.round(v)) : v.toFixed(2); }
+// a control's value <-> position 0..1 (slider, MIDI CC, macros). Only controls with log:true map logarithmically; every other control keeps the linear expressions it had.
+const ctlNorm = (c, v) => c.log ? Math.log(v/c.min)/Math.log(c.max/c.min) : (v-c.min)/(c.max-c.min);
+const ctlFromNorm = (c, n) => c.log ? c.min*Math.pow(c.max/c.min, n) : c.min + n*(c.max-c.min);
+const LOG_STEPS = 1000;   // a log slider's input runs 0..LOG_STEPS
 function addSlider(parent, id){
   const c = CTL[id]; const row = el('div', {className:'row'});
   row.innerHTML = '<label title="'+(c.tip||'')+'"><span>'+c.label+'<em class="lm" data-id="'+id+'"></em><em class="cc" data-t="c:'+id+'"></em></span><b id="v_'+id+'"></b></label>';
   row.dataset.t = 'c:'+id; row.addEventListener('pointerdown', e => { if (midiLearn){ e.preventDefault(); e.stopPropagation(); learnClick('c:'+id, e.shiftKey); } }, true);
-  const inp = el('input', {type:'range', id:'c_'+id, min:c.min, max:c.max, step:c.step, value:P[id]});
-  inp.oninput = () => { setControl(id, parseFloat(inp.value)); };
+  const inp = c.log ? el('input', {type:'range', id:'c_'+id, min:0, max:LOG_STEPS, step:1, value:Math.round(ctlNorm(c, P[id])*LOG_STEPS)})
+                    : el('input', {type:'range', id:'c_'+id, min:c.min, max:c.max, step:c.step, value:P[id]});
+  inp.oninput = () => { setControl(id, c.log ? ctlFromNorm(c, parseFloat(inp.value)/LOG_STEPS) : parseFloat(inp.value)); };
   inp.ondblclick = () => setControl(id, c.def); // double-click resets, like Photism
   row.appendChild(inp); parent.appendChild(row); sliderEls[id] = {inp, val: row.querySelector('#v_'+id)};
   sliderEls[id].val.textContent = fmtVal(c, P[id]);
@@ -1533,14 +1543,38 @@ function inputGainChanged(v){
   gainMem[gainMem.last] = v; clearTimeout(gainSaveTimer); gainSaveTimer = setTimeout(() => jset(GAIN_KEY, gainMem), 300);
   if (inGainNode) inGainNode.gain.setTargetAtTime(dbToGain(v), audioCtx.currentTime, 0.03);   // ~30 ms glide: no clicks, no detector jumps while dragging
 }
+/* Kick Band: the filter in front of the kick detector's bass analyser (it feeds nothing else). Shape S.kickBand ('lp' | 'bp'), Kick Frequency (P.kickFreq, Hz),
+   Kick Level (P.kickLevel, dB: a gain between the filter and the analyser, because a narrow band is quieter than the fixed gate 0.04 and floor 0.03 expect).
+   Stored per preset (inPreset, kickBand); A/B and Dice Undo leave it alone (applyLook lookOnly). */
+const KB_Q_LP = 0.7, KB_Q_BP = 1.5;   // lowpass Q as the filter always had it (dB, as Web Audio reads it); bandpass Q (linear)
+let kickGain = null, kbTimer = null, kbPending = false;
+function kickBandSettle(){   // the detector's bass history holds the old band's level: clear it and hold kicks off for 500 ms while it refills. The kick-window state feeds the mid detector and is left alone.
+  clearTimeout(kbTimer); kbTimer = null; kbPending = false;
+  lowEnergyHistory.length = 0; bassRecent.length = 0; prevBassRms = 0;
+  for (const k in dbgHist) dbgHist[k].length = 0;   // Kick Debug strip restarts, all traces together so they stay aligned
+  kbMuteUntil = performance.now() + 500;
+}
+function kickBandMoved(id){   // Kick Frequency / Kick Level changed (slider, MIDI, macro, preset): glide like Input Gain; settle once (at once after a preset recall, else 150 ms after the last move)
+  if (bassFilter){ const t = audioCtx.currentTime; if (id === 'kickFreq') bassFilter.frequency.setTargetAtTime(P.kickFreq, t, 0.03); else kickGain.gain.setTargetAtTime(dbToGain(P.kickLevel), t, 0.03); }
+  if (lookApplying) kbPending = true; else { clearTimeout(kbTimer); kbTimer = setTimeout(kickBandSettle, 150); }
+}
+function setKickBand(k){   // shape: a filter type can't glide, so type and Q are set directly (this path only feeds an analyser); settle at once
+  if ((k !== 'lp' && k !== 'bp') || k === S.kickBand) return;
+  S.kickBand = k;
+  if (bassFilter){ bassFilter.type = k === 'bp' ? 'bandpass' : 'lowpass'; bassFilter.Q.value = k === 'bp' ? KB_Q_BP : KB_Q_LP; }
+  if (lookApplying) kbPending = true; else kickBandSettle();
+  if (ui.refreshKickBand) ui.refreshKickBand();
+}
 function useGainFor(k){ if (!GAIN_SRCS.includes(k)) return; gainMem.last = k; jset(GAIN_KEY, gainMem); setControl('inputGain', gainMem[k], true); }
 function setControl(id, v, noSave){
   const c = CTL[id]; v = clamp(v, c.min, c.max); if (c.step >= 1) v = Math.round(v);
+  const was = P[id];
   P[id] = v; if (id === 'flash' && !flashLoading && !lookApplying){ S.modeFlash[modeKey()] = v; if (typeof scheduleSave === 'function') scheduleSave(); }
   if (id === 'inputGain') inputGainChanged(v);
+  if ((id === 'kickFreq' || id === 'kickLevel') && v !== was) kickBandMoved(id);
   if (id === 'heat' && !flashLoading && !lookApplying){ S.modeHeat[modeKey()] = v; if (typeof scheduleSave === 'function') scheduleSave(); }
   const s = sliderEls[id];
-  if (s){ s.inp.value = v; s.val.textContent = fmtVal(c, v); }
+  if (s){ s.inp.value = c.log ? Math.round(ctlNorm(c, v)*LOG_STEPS) : v; s.val.textContent = fmtVal(c, v); }
   if (!noSave) scheduleSave();
 }
 function rateButtons(parent, getRate, setRate){
@@ -1578,6 +1612,7 @@ function loadState(){
     S.shapeAuto = !!S.shapeAuto; S.scopeGrid = S.scopeGrid !== false;
     if (typeof S.shatterText !== 'string') S.shatterText = 'Copperlight'; if (typeof S.scrollText !== 'string') S.scrollText = 'BE KIND';
     if (!ASCII_SETS.some(x => x[0] === S.asciiSet)) S.asciiSet = 'classic';
+    if (S.kickBand !== 'lp' && S.kickBand !== 'bp') S.kickBand = 'bp';   // Kick Band shape: Band-Pass (the default) or Low-Pass
     if (!SCROLL_DIRS.some(x => x[0] === S.scrollDir)) S.scrollDir = 'left'; if (!TEXT_FONTS.some(x => x[0] === S.textFont)) S.textFont = 'sans'; S.scrollAccent = !!S.scrollAccent; S.scrollVanish = !!S.scrollVanish;
     S.palAuto = !!S.palAuto && S.palette !== 'monochromatic';
     if (!(S.lensStyle >= 0 && S.lensStyle < LENS_STYLES.length)) S.lensStyle = 0;
@@ -1670,7 +1705,10 @@ function buildUI(){
       });
     };
   }
-  addSlider(b, 'inputGain'); addSlider(b, 'kickSens'); addSlider(b, 'midSens'); addSlider(b, 'trebleSens');
+  addSlider(b, 'inputGain'); addSlider(b, 'kickSens');
+  { const r = el('div', {className:'row'}); r.innerHTML = '<label title="The filter in front of the kick detector. Band-Pass (default) = a band around Kick Frequency. Low-Pass = everything below it. Stored per preset"><span>Kick Band</span></label>'; b.appendChild(r); }
+  ui.refreshKickBand = buttonGroup(b, [['lp', 'Low-Pass'], ['bp', 'Band-Pass']], () => S.kickBand, k => setKickBand(k), 2);
+  addSlider(b, 'kickFreq'); addSlider(b, 'kickLevel'); addSlider(b, 'midSens'); addSlider(b, 'trebleSens');
   ui.dbgBtn = el('button', {textContent:'Kick Debug'}); ui.dbgBtn.style.marginTop = '8px'; b.appendChild(ui.dbgBtn);
   ui.dbgCv = el('canvas', {width:240, height:56}); ui.dbgCv.style.cssText = 'display:none;width:100%;height:56px;background:#0b0b0d;border-radius:3px;margin-top:4px;'; b.appendChild(ui.dbgCv);
   ui.dbgOn = false; ui.dbgBtn.onclick = () => { ui.dbgOn = !ui.dbgOn; ui.dbgBtn.classList.toggle('active', ui.dbgOn); ui.dbgCv.style.display = ui.dbgOn ? 'block' : 'none'; };
@@ -2171,6 +2209,7 @@ function detTrackProg(e, dt, dtScale){   // fast rise, 2 s half-life, never belo
   if (e > detTr.peak) detTr.peak += (e-detTr.peak)*(1-Math.pow(0.5, dtScale)); else detTr.peak *= Math.pow(0.5, dt/DET_HALF);
   detTr.peak = Math.max(detTr.peak, 2*detTr.long, DET_FLOOR);
 }
+let kbMuteUntil = 0;   // Kick Band: kicks are held off until this time after a band change (kickBandSettle); 0 = never
 /* DET-STATE-END */
 let scopePeak = 0, surgeT = 0, genTime = 0, spinAngle = 0, spinKickVel = 0, hueAcc = 0, seedGen = 1;
 let fpsFrames = 0, fpsLast = performance.now();
@@ -2225,6 +2264,7 @@ function frame(){
       if (steep > 0.4*thr && clickFlux > 1.2*thr) kickKind = 1;                       // bass rise + click transient
       else if (steep > 0.6*thr && dominance > 0.5) kickKind = 2;                      // clickless: needs a steeper, bass-led rise
     }
+    if (now < kbMuteUntil) kickKind = 0;   // Kick Band: for 500 ms after a band change, no kick while the bass history refills
     hit = kickKind > 0;
     if (hit){
       hitCount++; lastHitTime = now; seedGen = (seedGen*1664525 + 1013904223) >>> 0;
@@ -2263,7 +2303,10 @@ function frame(){
       if (H.sub.length > 240) for (const k in H) H[k].shift();
       const cv = ui.dbgCv, g = cv.getContext('2d'); g.fillStyle = '#0b0b0d'; g.fillRect(0,0,240,56);
       const line = (arr, col, sc2) => { g.strokeStyle = col; g.beginPath(); arr.forEach((v,i)=>{ const y = 56-Math.min(54, v*sc2*54); i ? g.lineTo(i,y) : g.moveTo(i,y); }); g.stroke(); };
-      line(H.mid,'#666',3); line(H.click,'#4ad',6); line(H.sub,'#e8923a',1.5);
+      // the bass (Kick Band) trace in dB, -60 to +24 dBFS, with a line at the kick gate (0.04 = -28 dBFS), so it stays readable at any Kick Frequency / Kick Level
+      const subDb = v => Math.max(0, (20*Math.log10(Math.max(v, 1e-6)) + 60)/84);
+      g.fillStyle = '#3a3a3a'; g.fillRect(0, Math.round(56 - subDb(0.04)*54), 240, 1);
+      line(H.mid,'#666',3); line(H.click,'#4ad',6); line(H.sub.map(subDb),'#e8923a',1);
       H.kick.forEach((k,i)=>{ if (k === 3){ g.fillStyle = '#4de'; g.fillRect(i,34,2,22); } else if (k){ g.fillStyle = k===1 ? '#fff' : '#ee4'; g.fillRect(i,0,2,56); } });
       g.fillStyle = '#999'; g.font = '9px sans-serif'; g.fillText('sub · click · mid   kick = white/yellow   hit = cyan', 3, 9);
     }
@@ -2618,14 +2661,15 @@ let presets = jget(PRESET_KEY, {}); if (!presets || typeof presets !== 'object' 
 let presetSel = null;
 let presetLoaded = null;   // slot last recalled (applied); presetSel is only the slot you clicked. Not persisted: it claims nothing after a reload.
 function snapshotLook(){
-  const p = {}; CONTROLS.forEach(c => { if (c.group !== 'audio') p[c.id] = P[c.id]; });
-  return {P:p, scene:S.scene, source:S.source, genStyle:S.genStyle, lensStyle:S.lensStyle, scrollDir:S.scrollDir, textFont:S.textFont, shatterText:S.shatterText, scrollText:S.scrollText, asciiSet:S.asciiSet, palette:S.palette, scopeColor:S.scopeColor, scopeGridColor:S.scopeGridColor, inkImage:S.inkImage, stages:Object.assign({}, S.stages), palAuto:S.palAuto, palRate:S.palRate, macros:JSON.parse(JSON.stringify(macros)), lfos:serializeLfos()};
+  const p = {}; CONTROLS.forEach(c => { if (c.group !== 'audio' || c.inPreset) p[c.id] = P[c.id]; });   // audio setup is not a look, except the Kick Band controls (inPreset)
+  return {P:p, kickBand:S.kickBand, scene:S.scene, source:S.source, genStyle:S.genStyle, lensStyle:S.lensStyle, scrollDir:S.scrollDir, textFont:S.textFont, shatterText:S.shatterText, scrollText:S.scrollText, asciiSet:S.asciiSet, palette:S.palette, scopeColor:S.scopeColor, scopeGridColor:S.scopeGridColor, inkImage:S.inkImage, stages:Object.assign({}, S.stages), palAuto:S.palAuto, palRate:S.palRate, macros:JSON.parse(JSON.stringify(macros)), lfos:serializeLfos()};
 }
-function applyLook(d){
+function applyLook(d, lookOnly){   // lookOnly (A/B swap, Dice Undo): the look without the Kick Band values, so they never retune the detector
   if (!d || typeof d !== 'object') return false;
   lookApplying = true; const hadFlash = d.P && typeof d.P.flash === 'number', hadHeat = d.P && typeof d.P.heat === 'number';
   spinAngle = 0; spinKickVel = 0;   // Spin is a rate; the accumulated rotation is not part of a look, so every recall / undo / A-B starts upright (otherwise Spin 0 leaves the picture frozen at whatever angle it had reached)
-  Object.keys(d.P || {}).forEach(k => { if (CTL[k] && CTL[k].group !== 'audio' && typeof d.P[k] === 'number') setControl(k, d.P[k], true); });
+  Object.keys(d.P || {}).forEach(k => { if (CTL[k] && (CTL[k].group !== 'audio' || (CTL[k].inPreset && !lookOnly)) && typeof d.P[k] === 'number') setControl(k, d.P[k], true); });   // a preset without a key leaves that live value alone
+  if (!lookOnly) setKickBand(d.kickBand);   // ignored when absent or invalid (presets from before Kick Band)
   if (SCENES.some(x => x[0] === d.scene)) S.scene = d.scene;
   if (SOURCES.some(x => x[0] === d.source)) S.source = d.source;
   if (GEN_SRC[d.genStyle]) S.genStyle = d.genStyle;
@@ -2644,7 +2688,8 @@ function applyLook(d){
   if (SHUFFLE_RATES.includes(d.palRate)) S.palRate = d.palRate;
   if (Array.isArray(d.lfos)){ lfos = cleanLfos(d.lfos); saveLfos(); }   // presets saved before LFOs existed leave the live LFOs alone
   if (d.macros){ macros = cleanMacros(d.macros); saveMacros(); }   // presets from before per-preset macros leave the live macros alone
-  lookApplying = false; if (hadFlash) S.modeFlash[modeKey()] = P.flash; if (hadHeat) S.modeHeat[modeKey()] = P.heat; if (!hadFlash || !hadHeat) applyModeFlash();   // the preset's Screen Flash becomes this mode's remembered value
+  lookApplying = false; if (kbPending) kickBandSettle();   // the Kick Band changed with this preset: settle once
+  if (hadFlash) S.modeFlash[modeKey()] = P.flash; if (hadHeat) S.modeHeat[modeKey()] = P.heat; if (!hadFlash || !hadHeat) applyModeFlash();   // the preset's Screen Flash becomes this mode's remembered value
   if (ui.refreshAll) ui.refreshAll();
   scheduleSave(); return true;
 }
@@ -2696,7 +2741,7 @@ function learnClick(t, clear){
   setMidiStatus(armedTarget ? 'Move a knob/fader to bind it…' : 'Learn mode on.');
 }
 function applyTarget(t, n){
-  if (t.startsWith('c:')){ const c = CTL[t.slice(2)]; setControl(c.id, c.min + n*(c.max-c.min)); }
+  if (t.startsWith('c:')){ const c = CTL[t.slice(2)]; setControl(c.id, ctlFromNorm(c, n)); }
   else if (t.startsWith('m:')) setMacro(+t.slice(2), n);
   else if (t === 'b:stages') setStagesBypass(n >= 0.5);
   else {   // 'l:<lfo>:depth' | 'l:<lfo>:rate' (rate = the division in Sync mode)
@@ -2712,7 +2757,7 @@ function applyTarget(t, n){
 const CCMODE_KEY = 'copperlightV1_ccMode'; let ccMode = lsGet(CCMODE_KEY, 'jump') === 'pickup' ? 'pickup' : 'jump';
 const ccPick = {};   // cc -> {last: previous incoming 0..1, exp: value we last wrote (0..1) or null when not picked up}
 function targetNorm(t){
-  if (t.startsWith('c:')){ const c = CTL[t.slice(2)]; return c ? (P[c.id]-c.min)/(c.max-c.min) : 0; }
+  if (t.startsWith('c:')){ const c = CTL[t.slice(2)]; return c ? ctlNorm(c, P[c.id]) : 0; }
   if (t.startsWith('m:')) return macros.v[+t.slice(2)] || 0;
   const [, i, what] = t.split(':'); const l = lfos[+i]; if (!l) return 0;
   if (what === 'depth') return l.depth;
@@ -2820,7 +2865,7 @@ let macroSaveTimer = null;
 function saveMacros(){ clearTimeout(macroSaveTimer); macroSaveTimer = setTimeout(() => jset(MACRO_KEY, macros), 300); }
 function setMacro(i, n){
   n = clamp(n, 0, 1); macros.v[i] = n;
-  macros.t[i].forEach(tg => { const c = CTL[tg.id]; setControl(tg.id, c.min + (tg.lo + (tg.hi-tg.lo)*n)*(c.max-c.min), true); });
+  macros.t[i].forEach(tg => { const c = CTL[tg.id]; setControl(tg.id, ctlFromNorm(c, tg.lo + (tg.hi-tg.lo)*n), true); });
   if (ui.macroSl && ui.macroSl[i]) ui.macroSl[i].value = n;
   scheduleSave(); saveMacros();
 }
@@ -2855,11 +2900,11 @@ function diceLook(){
   S.asciiSet = pick(ASCII_SETS)[0];
   ui.refreshAll && ui.refreshAll(); scheduleSave(); refreshLooksUI('Dice rolled — U undoes it.');
 }
-function undoDice(){ if (!lookUndo){ refreshLooksUI('Nothing to undo.'); return; } const cur = snapshotLook(); applyLook(lookUndo); lookUndo = cur; refreshLooksUI('Dice undone (U again to redo).'); }
+function undoDice(){ if (!lookUndo){ refreshLooksUI('Nothing to undo.'); return; } const cur = snapshotLook(); applyLook(lookUndo, true); lookUndo = cur; refreshLooksUI('Dice undone (U again to redo).'); }
 function saveAB(){ jset(AB_KEY, ab); }
 function abSwap(){
   ab[ab.on] = snapshotLook(); const next = ab.on === 'A' ? 'B' : 'A';
-  if (ab[next]) applyLook(ab[next]); else ab[next] = snapshotLook();
+  if (ab[next]) applyLook(ab[next], true); else ab[next] = snapshotLook();
   ab.on = next; saveAB(); refreshLooksUI('Look '+next+(ab[next] ? '' : '')+' active.');
 }
 function refreshLooksUI(msg){
@@ -2878,7 +2923,7 @@ function syncKeySelects(){
 function buildM3UI(){
   ui.refreshAll = () => {
     ui.sceneSel.value = S.scene;
-    ['refreshSrc','refreshInk','refreshPal','refreshGen','refreshLens','updateScene','refreshEdge','refreshAsciiSet'].forEach(k => { if (typeof ui[k] === 'function') ui[k](); });
+    ['refreshSrc','refreshInk','refreshPal','refreshGen','refreshLens','updateScene','refreshEdge','refreshAsciiSet','refreshKickBand'].forEach(k => { if (typeof ui[k] === 'function') ui[k](); });
     (ui.stageSyncs || []).forEach(f => f());
     ui.syncPalAuto && ui.syncPalAuto();
     ui.renderLfos && ui.renderLfos();
@@ -3209,7 +3254,8 @@ resize();
 // expose a small hook for automated checks (no effect on normal use)
 // flush debounced saves if the page is closed / reloaded right after a change
 addEventListener('pagehide', () => { try { saveState(); jset(MACRO_KEY, macros); jset(LFO_KEY, serializeLfos()); } catch(e){} });
-window.__copperlight = {audio:()=>({names:audioList.map(f=>f.name), idx:audioIdx, repeat:audioRepeat, el:mediaEl, live:fileLive()}), midiMsg:(d,ts)=>handleMidiBytes(d, ts===undefined?performance.now():ts), presets:()=>presets, ccMap:()=>ccMap, macros:()=>macros, bpm:()=>midiBpm, P, E, S, gl, setControl, shuffleLook, forceKick:0, hits:()=>hitCount, lfos:()=>lfos, tempo:()=>tempo, midiTest:{setAccess:a=>{midiAccess=a; refreshMidiInputs();}, desired:()=>midiDesired}, setCcMode:m=>{ccMode=m; Object.keys(ccPick).forEach(k=>delete ccPick[k]);}, ccMode:()=>ccMode, curBpm:()=>currentBpm(), percs:()=>percCount, trebles:()=>trebleCount, detLog:on => { detLog = on ? {kick:[], mid:[], treble:[]} : null; return detLog; }, detRelative:DET_RELATIVE, detFloat:DET_FLOAT, nodes:()=>({ctx:audioCtx, inGainNode, dryBus, analyser, recordDest, gainMem}), meter:()=>ui.mBars.map(m => m.lvl), setPerc:(t,w)=>{PERC_T0=t;PERC_CLICK_W=w;}, cur:()=>({photo:photoCurFile&&photoCurFile.name, video:vidCurFile&&vidCurFile.name, vA:vidA.currentSrc.slice(-12), vReady:vidA.readyState, vBReady:vidB.readyState, nxt:vidNextFile&&vidNextFile.name}), programs: {warpProg, trailProg, finalProg, genProg}};
+window.__copperlight = {kickBand:{setShape:k => setKickBand(k), state:() => ({shape:S.kickBand, freq:P.kickFreq, level:P.kickLevel, holdLeftMs:Math.max(0, kbMuteUntil - performance.now()), bassHistory:lowEnergyHistory.length, node:bassFilter ? {type:bassFilter.type, freq:bassFilter.frequency.value, q:bassFilter.Q.value, gain:kickGain.gain.value} : null})},   // test hook (headless tests): set the shape; read the Kick Band state
+  audio:()=>({names:audioList.map(f=>f.name), idx:audioIdx, repeat:audioRepeat, el:mediaEl, live:fileLive()}), midiMsg:(d,ts)=>handleMidiBytes(d, ts===undefined?performance.now():ts), presets:()=>presets, ccMap:()=>ccMap, macros:()=>macros, bpm:()=>midiBpm, P, E, S, gl, setControl, shuffleLook, forceKick:0, hits:()=>hitCount, lfos:()=>lfos, tempo:()=>tempo, midiTest:{setAccess:a=>{midiAccess=a; refreshMidiInputs();}, desired:()=>midiDesired}, setCcMode:m=>{ccMode=m; Object.keys(ccPick).forEach(k=>delete ccPick[k]);}, ccMode:()=>ccMode, curBpm:()=>currentBpm(), percs:()=>percCount, trebles:()=>trebleCount, detLog:on => { detLog = on ? {kick:[], mid:[], treble:[]} : null; return detLog; }, detRelative:DET_RELATIVE, detFloat:DET_FLOAT, nodes:()=>({ctx:audioCtx, inGainNode, dryBus, analyser, recordDest, gainMem}), meter:()=>ui.mBars.map(m => m.lvl), setPerc:(t,w)=>{PERC_T0=t;PERC_CLICK_W=w;}, cur:()=>({photo:photoCurFile&&photoCurFile.name, video:vidCurFile&&vidCurFile.name, vA:vidA.currentSrc.slice(-12), vReady:vidA.readyState, vBReady:vidB.readyState, nxt:vidNextFile&&vidNextFile.name}), programs: {warpProg, trailProg, finalProg, genProg}};
 requestAnimationFrame(frame);
 })();
 </script>
