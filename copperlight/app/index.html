@@ -1340,7 +1340,7 @@ let clickHP, clickLP, clickAnalyser, clickData, trebleHP, trebleAnalyser, treble
 let freqData, timeData, stereoSrc = true;
 /* TEMPORARY iPad diagnostics (Build 58, remove once the iPad audio and touch-offset bugs are understood). Shown only in a Home Screen launch
    (standalone), so a Safari tab and every desktop browser look and behave as before. Live state at the top, the last events below (seconds since launch). */
-const TEST_BUILD = 70;   // TEMPORARY build number beside v1.0 in the panel (and in the readout), so João can tell which build the iPad loaded; bump every build, remove when asked
+const TEST_BUILD = 71;   // TEMPORARY build number beside v1.0 in the panel (and in the readout), so João can tell which build the iPad loaded; bump every build, remove when asked
 const DIAG = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
 const diagEvents = [], diagKey = [], diagT0 = performance.now();
 const DIAG_KEY = /^(launch|prime|engine created|engine (\(old\) )?→|recover|resume FAILED|File|picker|mic: got|mic settings|mic FAILED|mic stopped|file: |file play\(\)|file error|touch: starting)/;   // pinned above the full log so routine file events can't push them out
@@ -1453,13 +1453,13 @@ const AUDIO_STUCK_MSG = "This browser's audio has stopped (on iPad this happens 
 function setAudioStuck(why){ if (!audioStuck) diag('audio stuck ('+why+'): close and reopen'); audioStuck = true; if (mediaEl) mediaEl.pause(); pendingPlay = null; setAudioStatus(AUDIO_STUCK_MSG); }
 let lastRecover = -1e9;
 const holdPaused = new WeakSet();   // a file element recreated paused by recoverEngine: a blocked start must not become a pending one
-function rebuildAudioCtx(){   // every node lives in ensureAudioCtx and reads its settings from S / P, so a rebuild keeps Input Gain, Kick Band etc.
+function closeAudioCtx(){   // no engine at all until ensureAudioCtx runs again; inGainNode / bassFilter cleared too, so the slider handlers' guards skip them
   const old = audioCtx;
   if (sourceNode){ try { sourceNode.disconnect(); } catch(e){} sourceNode = null; }
-  audioCtx = null; analyser = null; recordDest = null; audioInterrupted = false;
+  audioCtx = null; analyser = null; recordDest = null; inGainNode = null; bassFilter = null; audioInterrupted = false;
   if (old) old.close().catch(()=>{});
-  ensureAudioCtx();
 }
+function rebuildAudioCtx(){ closeAudioCtx(); ensureAudioCtx(); }   // every node lives in ensureAudioCtx and reads its settings from S / P, so a rebuild keeps Input Gain, Kick Band etc.
 function recoverEngine(why){   // new context, then the source that was live: mic (as is, or reopened if its track ended), System, or File (same track, position, play state)
   if (micReviving || audioStuck || performance.now()-lastRecover < 5000) return;   // at most one every 5 s, so an engine that won't run can't loop; none once the audio is stuck
   lastRecover = performance.now();
@@ -1888,16 +1888,16 @@ function buildUI(){
   };
   bSys.onclick = () => { detachMonitor(); useSystemAudio(); };
   // File starts (or resumes) the engine inside the tap: iPadOS doesn't count the picker closing as one, so an engine made there stayed paused and the file played silent
-  // File while the mic is on: the mic goes off in this tap, and a fresh engine is built when the picker closes, seconds later. EXPERIMENT (Build 70): an
-  // engine built in the same instant the mic stopped sometimes played a 44.1 kHz file heavily distorted on the iPad (the engine itself looked healthy;
-  // a rebuild cured it), so iPadOS gets time to finish switching from record to playback first. The start-tap starts the new engine. A cancelled
-  // picker brings the mic back.
+  // File while the mic is on: the mic goes off and the engine is closed in this tap, so no app audio runs while the picker is open; picking a file
+  // builds a fresh engine (useFile -> ensureAudioCtx), which the start-tap starts. EXPERIMENT (Build 71): after Mic, a 44.1 kHz file sometimes played
+  // heavily distorted on the iPad (engine healthy to the app; building it in the tap or at picker close made no difference; minimise-and-return cured
+  // it), so iPadOS gets a moment with no audio at all, as when minimised. A cancelled picker brings the mic back.
   let micBeforeFile = false;
   bFile.onclick = () => { diag('File tapped');
-    if (micStream){ micBeforeFile = true; stopMicStream(); diag('File: mic off, engine rebuilt when the picker closes'); }
-    ensureAudioCtx(); fin.click(); };
+    if (micStream){ micBeforeFile = true; stopMicStream(); closeAudioCtx(); diag('File: mic off, engine closed until a file is picked'); }
+    else ensureAudioCtx();
+    fin.click(); };
   fin.onchange = () => { diag('picker closed: '+fin.files.length+' file(s)');
-    if (micBeforeFile && fin.files.length && audioCtx){ rebuildAudioCtx(); diag('File: fresh engine '+audioCtx.sampleRate+' Hz, '+audioCtx.state); }
     micBeforeFile = false; if (fin.files.length) addAudioFiles(Array.from(fin.files)); fin.value = ''; };
   fin.addEventListener('cancel', () => { diag('picker cancelled'); if (micBeforeFile){ micBeforeFile = false; useMic(lastMicDevice); } });
   ui.micSel.onchange = () => { if (ui.micSel.value) useMic(ui.micSel.value); };
