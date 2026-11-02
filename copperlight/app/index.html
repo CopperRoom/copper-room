@@ -175,6 +175,8 @@ body.s2 input[type=range]:hover::-webkit-slider-thumb,body.s2 input[type=range]:
 body.s2 input[type=range]::-moz-range-track{height:2px;background:rgba(232,228,220,.14);}
 body.s2 input[type=range]::-moz-range-progress{height:2px;background:rgba(232,228,220,.55);}
 body.s2 input[type=range]::-moz-range-thumb{width:3px;height:14px;border:0;border-radius:0;background:#e8e4dc;}
+/* Touch screens: the panel scrolls vertically, sliders take horizontal drags (see the touch slider handler in the script, Build 76) */
+@media (pointer: coarse){ body.s2 input[type=range]{touch-action:pan-y;} }
 body.s2 select,body.s2 button,body.s2 .ptext{height:28px;padding:0 8px;background:transparent;border:1px solid var(--line);border-radius:2px;}
 body.s2 .ptext{margin-bottom:6px;}
 body.s2 select{-webkit-appearance:none;appearance:none;padding-right:24px;
@@ -2772,6 +2774,29 @@ addEventListener('mousemove', () => { if (document.fullscreenElement){ document.
 document.addEventListener('change', e => { if (e.target.tagName === 'SELECT') e.target.blur(); });
 document.addEventListener('click', e => { if (e.target.tagName === 'BUTTON') e.target.blur(); });
 function togglePanel(){ panel.classList.toggle('hidden'); pokeHud(); }   // key H, or a double-tap on the visuals
+// Touch sliders: iPad Safari only drags a slider from its handle, a 3 px line here, so a finger now works anywhere on a slider, as a mouse click does:
+// a tap jumps there, a sideways drag follows the finger, a vertical swipe scrolls the panel (CSS touch-action: pan-y) and leaves the slider alone.
+// The value goes through the slider's own input / change events, so log sliders, macros, LFOs and the seek bar behave as with a mouse. Touch only (Build 76).
+{ const SLOP = 6;
+  panel.addEventListener('pointerdown', e => {
+    const r = e.target;
+    if (e.pointerType !== 'touch' || !(r instanceof HTMLInputElement) || r.type !== 'range' || r.disabled) return;
+    const x0 = e.clientX, y0 = e.clientY; let dragging = false;
+    try { r.setPointerCapture(e.pointerId); } catch(err){}
+    const set = x => { const q = r.getBoundingClientRect(); if (!q.width) return;
+      const lo = r.min === '' ? 0 : +r.min, hi = r.max === '' ? 100 : +r.max;
+      r.value = lo + clamp((x-q.left)/q.width, 0, 1)*(hi-lo); r.dispatchEvent(new Event('input', {bubbles:true})); };
+    const move = ev => { const dx = Math.abs(ev.clientX-x0);
+      if (!dragging){ if (dx < SLOP || dx < Math.abs(ev.clientY-y0)) return; dragging = true; }
+      ev.preventDefault(); set(ev.clientX); };
+    const end = ev => { r.removeEventListener('pointermove', move); r.removeEventListener('pointerup', end); r.removeEventListener('pointercancel', end);
+      if (ev.type !== 'pointerup') return;   // pointercancel: the panel took a vertical swipe
+      if (!dragging && Math.hypot(ev.clientX-x0, ev.clientY-y0) >= SLOP) return;
+      if (!dragging) set(ev.clientX);
+      r.dispatchEvent(new Event('change', {bubbles:true})); };
+    r.addEventListener('pointermove', move); r.addEventListener('pointerup', end); r.addEventListener('pointercancel', end);
+  });
+}
 // Double-tap (touch / pen only, so a mouse double-click does nothing new): two taps on the canvas within 350 ms and 40 px. The panel sits above the canvas,
 // so taps on it never reach this; the canvas has touch-action:manipulation, so iOS does not zoom on the double-tap.
 { let lastTap = null;
