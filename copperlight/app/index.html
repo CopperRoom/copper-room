@@ -1341,6 +1341,7 @@ addEventListener('resize', resize);
 
 /* ---------------------------------------------------------------- audio engine (ported from prototype) */
 let audioCtx, analyser, sourceNode, mediaEl, displayStream, micStream, recordDest;
+let recFold = null;   // recording feed: dryBus -> L / R -> recordDest, with a switch that copies L into R (see the meter block)
 let inGainNode, dryBus;   // source -> inGainNode (Input Gain) -> every analysis node; source -> dryBus (unity) -> file monitor and recording, so the gain never reaches what you hear or record
 let bassFilter, bassAnalyser, bassData, midFilterHP, midFilterLP, midAnalyser, midData, splitter, analyserL, analyserR, dataL, dataR;
 let clickHP, clickLP, clickAnalyser, clickData, trebleHP, trebleAnalyser, trebleData;
@@ -1382,11 +1383,16 @@ function ensureAudioCtx(){
     dryBus = audioCtx.createGain();
   }
 }
+function setRecFold(on){
+  if (!recFold || recFold.on === on) return; recFold.on = on; const t = audioCtx.currentTime;
+  recFold.r.gain.setTargetAtTime(on ? 0 : 1, t, 0.01); recFold.l.gain.setTargetAtTime(on ? 1 : 0, t, 0.01);
+}
 function connectSource(node){
   if (sourceNode){ try { sourceNode.disconnect(); } catch(e){} }
   sourceNode = node;
   stereoSrc = (node.channelCount || 1) > 1;
   node.connect(inGainNode); node.connect(dryBus);
+  setRecFold(false);   // a new source starts as it arrives; the meter block folds it again if its right channel is empty
   if (ui.setDot) ui.setDot('audio', true);
 }
 function stopDisplayStream(){ if (displayStream){ try { displayStream.getTracks().forEach(t=>t.stop()); } catch(e){} displayStream = null; } }
@@ -1425,7 +1431,7 @@ const holdPaused = new WeakSet();   // a file element recreated paused by recove
 function closeAudioCtx(){   // no engine at all until ensureAudioCtx runs again; inGainNode / bassFilter cleared too, so the slider handlers' guards skip them
   const old = audioCtx;
   if (sourceNode){ try { sourceNode.disconnect(); } catch(e){} sourceNode = null; }
-  audioCtx = null; analyser = null; recordDest = null; inGainNode = null; bassFilter = null; audioInterrupted = false;
+  audioCtx = null; analyser = null; recordDest = null; recFold = null; inGainNode = null; bassFilter = null; audioInterrupted = false;
   if (old) old.close().catch(()=>{});
 }
 function rebuildAudioCtx(){ closeAudioCtx(); ensureAudioCtx(); }   // every node lives in ensureAudioCtx and reads its settings from S / P, so a rebuild keeps Input Gain, Kick Band etc.
@@ -2072,7 +2078,7 @@ function buildUI(){
   buildM4UI();
   // Output
   b = section('Output');
-  const ob = el('div', {className:'btns c2'}); const bFull = el('button', {textContent:'Fullscreen (F)'}); ui.fullBtn = bFull; ui.recBtn = el('button', {textContent:'Record (R)'}); ui.shotBtn = el('button', {textContent:'Screenshot (G)'}); ui.shotBtn.style.gridColumn = '2'; ob.append(bFull, ui.recBtn, ui.shotBtn); b.appendChild(ob);   // Screenshot under Record
+  const ob = el('div', {className:'btns c2'}); const bFull = el('button', {textContent:'Fullscreen (F)'}); ui.fullBtn = bFull; ui.recBtn = el('button', {textContent:'Record (R)'}); ui.shotBtn = el('button', {textContent:'Screenshot (G)'}); ui.shotBtn.style.cssText = 'grid-column:1 / -1;justify-self:center;width:calc(50% - 2px);'; ob.append(bFull, ui.recBtn, ui.shotBtn); b.appendChild(ob);   // Screenshot centred under the pair, same width
   const rr = el('div', {className:'row'}); rr.innerHTML = '<label><span>Render resolution</span></label>';
   const resSel = el('select'); [['1080p','1080p (smoothest)'],['1440p','1440p'],['native','Native']].forEach(([k,l]) => resSel.appendChild(new Option(l,k))); resSel.value = resSetting;
   resSel.onchange = () => { resSetting = resSel.value; lsSet('copperlightV1_renderRes', resSetting); resize(); }; rr.appendChild(resSel); b.appendChild(rr);
@@ -2105,15 +2111,32 @@ function getRecordMimeCandidates(w){
   return ['video/mp4;codecs=avc1.640029,mp4a.40.2','video/mp4;codecs=avc1.4d0029,mp4a.40.2','video/mp4;codecs=avc1,mp4a.40.2','video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
 }
 function pickRecordMimeType(w){ for (const t of getRecordMimeCandidates(w)) if (window.MediaRecorder && MediaRecorder.isTypeSupported(t)) return t; return ''; }
-function nextRecordingFilename(ext, res){
-  let n = parseInt(lsGet('copperlightV1_recordingFileNumber', '1'), 10); if (!Number.isFinite(n) || n < 1) n = 1;
-  lsSet('copperlightV1_recordingFileNumber', String(n+1)); // per-app recording counter
-  return 'Copperlight-'+fileDate()+'-'+n+'-'+res+'.'+ext;
+// Save a recording or screenshot as Copperlight-<date>-<n>-<tail>; counterKey is that kind's own counter, advanced only once the file is delivered.
+// iPad Home Screen launch: the share sheet (Save Image / Save Video → Photos, Save to Files); a cancelled sheet saves nothing; any other refusal downloads instead.
+async function deliverFile(blob, what, counterKey, tail, say){
+  let n = parseInt(lsGet(counterKey, '1'), 10); if (!Number.isFinite(n) || n < 1) n = 1;
+  const name = 'Copperlight-'+fileDate()+'-'+n+'-'+tail;
+  const saved = () => { lsSet(counterKey, String(n+1)); say('Saved '+name+' ('+(blob.size/1048576).toFixed(1)+' MB).'); };
+  if (navigator.standalone === true && navigator.canShare){
+    const file = new File([blob], name, {type:blob.type});
+    if (navigator.canShare({files:[file]})){
+      try { await navigator.share({files:[file]}); saved(); return; }
+      catch(e){ if (e.name === 'AbortError'){ say(what+' not saved (share cancelled).'); return; } }
+    }
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000); saved();
 }
 function fileDate(){ const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function startRecording(){
   if (!audioCtx || !analyser){ ui.recStatus.textContent = 'Connect an audio source before recording.'; return; }
-  if (!recordDest){ recordDest = audioCtx.createMediaStreamDestination(); dryBus.connect(recordDest); }   // records the source as it arrives, before Input Gain
+  if (!recordDest){   // records the source as it arrives, before Input Gain
+    recordDest = audioCtx.createMediaStreamDestination();
+    const up = audioCtx.createGain(), split = audioCtx.createChannelSplitter(2), merge = audioCtx.createChannelMerger(2), r = audioCtx.createGain(), l = audioCtx.createGain();
+    up.channelCount = 2; up.channelCountMode = 'explicit';   // a one-channel source is spread to both sides before the split
+    l.gain.value = 0; dryBus.connect(up); up.connect(split); split.connect(merge, 0, 0); split.connect(r, 1); r.connect(merge, 0, 1); split.connect(l, 0); l.connect(merge, 0, 1); merge.connect(recordDest);
+    recFold = {on:false, r, l};
+  }
   const is4k = ui.recRes.value === '4k'; recordCanvas.width = is4k ? 3840 : 1920; recordCanvas.height = is4k ? 2160 : 1080;
   const mimeType = pickRecordMimeType(recordCanvas.width);
   if (!mimeType){ ui.recStatus.textContent = 'No usable video encoder at that resolution — try 1080p.'; return; }
@@ -2121,16 +2144,15 @@ function startRecording(){
   try { videoTrack.contentHint = 'motion'; } catch(e){}
   videoTrack.onmute = () => { ui.recStatus.textContent = 'Warning: video track stalled — recording may freeze from here.'; };
   const stream = new MediaStream([videoTrack, ...recordDest.stream.getAudioTracks()]); recordedChunks = [];
-  try { mediaRecorder = new MediaRecorder(stream, {mimeType, videoBitsPerSecond: is4k ? 50000000 : 32000000, audioBitsPerSecond:192000}); }
+  try { mediaRecorder = new MediaRecorder(stream, {mimeType, videoBitsPerSecond: is4k ? 120000000 : 64000000, audioBitsPerSecond:192000}); }   // H.264 so files play everywhere (Windows too); at half these rates detail smeared on kicks and transitions
   catch(e){ ui.recStatus.textContent = 'Could not start recording: '+e.message; videoTrack.stop(); return; }
   ui.recRes.disabled = true; const isMp4 = mimeType.startsWith('video/mp4');
   mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) recordedChunks.push(e.data); };
   mediaRecorder.onerror = e => { ui.recStatus.textContent = 'Recording error: '+((e.error && e.error.message)||'check console'); };
   mediaRecorder.onstop = () => {
     videoTrack.stop(); ui.recRes.disabled = false;
-    const blob = new Blob(recordedChunks, {type:mimeType}); const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = nextRecordingFilename(isMp4?'mp4':'webm', is4k?'4K':'1080p'); document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 10000); ui.recStatus.textContent = 'Saved '+a.download+' ('+(blob.size/1048576).toFixed(1)+' MB).';
+    const blob = new Blob(recordedChunks, {type:mimeType.split(';')[0]});
+    deliverFile(blob, 'Recording', 'copperlightV1_recordingFileNumber', (is4k?'4K':'1080p')+'.'+(isMp4?'mp4':'webm'), msg => { ui.recStatus.textContent = msg; });
   };
   mediaRecorder.start(); recordStartMs = performance.now(); clearInterval(recordTimerId);
   recordTimerId = setInterval(() => { ui.recStatus.textContent = 'Recording '+(is4k?'4K':'1080p')+' — '+fmtTime((performance.now()-recordStartMs)/1000)+(isMp4?' (mp4)':' (webm — no mp4 encoder)')+(performance.now() < shotMsgUntil ? ' · '+shotMsg : ''); }, 250);
@@ -2157,20 +2179,7 @@ function takeScreenshot(){
   shotPending = false; shotBusy = true; const w = canvas.width, h = canvas.height;
   canvas.toBlob(blob => { shotBusy = false; if (blob) saveScreenshot(blob, w, h); else setShotStatus('Screenshot failed.'); }, 'image/png');
 }
-async function saveScreenshot(blob, w, h){
-  let n = parseInt(lsGet('copperlightV1_screenshotFileNumber', '1'), 10); if (!Number.isFinite(n) || n < 1) n = 1;
-  const name = 'Copperlight-'+fileDate()+'-'+n+'-'+w+'x'+h+'.png';
-  const saved = () => { lsSet('copperlightV1_screenshotFileNumber', String(n+1)); setShotStatus('Saved '+name+' ('+(blob.size/1048576).toFixed(1)+' MB).'); };   // own counter, separate from recordings
-  if (navigator.standalone === true && navigator.canShare){   // iPad Home Screen launch: the share sheet (Save Image → Photos, Save to Files)
-    const file = new File([blob], name, {type:'image/png'});
-    if (navigator.canShare({files:[file]})){
-      try { await navigator.share({files:[file]}); saved(); return; }
-      catch(e){ if (e.name === 'AbortError'){ setShotStatus('Screenshot not saved (share cancelled).'); return; } }   // any other refusal: download instead
-    }
-  }
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 10000); saved();
-}
+function saveScreenshot(blob, w, h){ deliverFile(blob, 'Screenshot', 'copperlightV1_screenshotFileNumber', w+'x'+h+'.png', setShotStatus); }   // own counter, separate from recordings
 
 
 /* ---------------------------------------------------------------- media sources (Photo / Video folders) */
@@ -2492,6 +2501,9 @@ function frame(){
     // the app was hidden), so a silent right channel with signal on the left counts as mono too, as in the X-Y Scope below
     const rmsL = Math.sqrt(sqL/dataL.length), rmsR = Math.sqrt(sqR/dataR.length), monoNow = !stereoSrc || (rmsR <= 1/1024 && rmsL > 1/256);
     updateMeter(ui.mBars[0], rmsL, now, dtScale); updateMeter(ui.mBars[1], monoNow ? rmsL : rmsR, now, dtScale);
+    // the recording gets the same rule, for Mic and System only (a file's channels are what the file holds): the iPad mic arrives as two channels
+    // with the right one empty, so L is copied into R until R carries signal again
+    if (recFold && sourceNode && sourceNode !== mediaSrcNode){ if (rmsR > 1/1024) setRecFold(false); else if (rmsL > 1/256) setRecFold(true); }
   }
   // asymmetric attack/decay envelope; Decay slider sets the release (0.5 == prototype's 0.055)
   const rel = 0.2*Math.pow(0.075, E.decay);
