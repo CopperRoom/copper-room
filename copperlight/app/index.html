@@ -18,7 +18,9 @@
   }
   *{box-sizing:border-box;}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;overflow:hidden;overscroll-behavior:none;}   /* none: the page itself never rubber-bands or swipe-navigates (iPad Home Screen touch offset, Build 73) */
-  canvas#gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:manipulation;}
+  canvas#gl{position:absolute;left:0;top:calc(-1 * env(safe-area-inset-top));width:100%;height:calc(100% + env(safe-area-inset-top));display:block;touch-action:manipulation;}
+  /* the canvas reaches up by the status-bar inset (0 except in an iPad Home Screen launch): when iPadOS shifts the page down by that much, the visuals still
+     run behind the status bar instead of leaving a black band; when it doesn't, the extra strip sits above the screen edge (Build 75) */
   /* canvas, panel and HUD are absolute, not fixed: the page never scrolls, so they sit where fixed ones would, but on some iPad Home Screen launches iPadOS
      shifts the document by the status-bar height and WebKit then hit-tests fixed elements off by that much (Build 73 tests); absolute ones move with their touches. */
   html.cursor-hidden, html.cursor-hidden *{cursor:none!important;}
@@ -1320,7 +1322,8 @@ function makeTarget(w, h, mips, mirror){
 function freeTarget(t){ if (t){ gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fbo); } }
 let resSetting = lsGet('copperlightV1_renderRes', '1080p');
 function resize(){
-  const rawW = Math.max(2, Math.round(innerWidth*devicePixelRatio)), rawH = Math.max(2, Math.round(innerHeight*devicePixelRatio));
+  const box = canvas.getBoundingClientRect();   // the canvas's own box: on the iPad it reaches up behind the status bar, so it can be taller than the window
+  const rawW = Math.max(2, Math.round((box.width || innerWidth)*devicePixelRatio)), rawH = Math.max(2, Math.round((box.height || innerHeight)*devicePixelRatio));
   const cap = RES_CHOICES[resSetting] || RES_CHOICES['1080p'];
   const k = rawW*rawH > cap ? Math.sqrt(cap/(rawW*rawH)) : 1;
   const w = Math.max(2, Math.round(rawW*k)), h = Math.max(2, Math.round(rawH*k));
