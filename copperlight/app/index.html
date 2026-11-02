@@ -1340,10 +1340,13 @@ let clickHP, clickLP, clickAnalyser, clickData, trebleHP, trebleAnalyser, treble
 let freqData, timeData, stereoSrc = true;
 /* TEMPORARY iPad diagnostics (Build 58, remove once the iPad audio and touch-offset bugs are understood). Shown only in a Home Screen launch
    (standalone), so a Safari tab and every desktop browser look and behave as before. Live state at the top, the last events below (seconds since launch). */
-const TEST_BUILD = 65;   // TEMPORARY build number beside v1.0 in the panel (and in the readout), so João can tell which build the iPad loaded; bump every build, remove when asked
+const TEST_BUILD = 66;   // TEMPORARY build number beside v1.0 in the panel (and in the readout), so João can tell which build the iPad loaded; bump every build, remove when asked
 const DIAG = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-const diagEvents = [], diagT0 = performance.now();
-function diag(msg){ if (!DIAG) return; diagEvents.push(((performance.now()-diagT0)/1000).toFixed(1)+'  '+msg); if (diagEvents.length > 40) diagEvents.shift(); }
+const diagEvents = [], diagKey = [], diagT0 = performance.now();
+const DIAG_KEY = /^(launch|engine created|engine (\(old\) )?→|recover|resume FAILED|File|picker|mic: got|mic settings|mic FAILED|mic stopped|file: |file play\(\)|file error|touch: starting)/;   // pinned above the full log so routine file events can't push them out
+function diag(msg){ if (!DIAG) return; const line = ((performance.now()-diagT0)/1000).toFixed(1)+'  '+msg;
+  diagEvents.push(line); if (diagEvents.length > 22) diagEvents.shift();
+  if (DIAG_KEY.test(msg)){ diagKey.push(line); if (diagKey.length > 24) diagKey.shift(); } }
 function resumeCtx(why){ const c = audioCtx; diag('resume ('+why+') from '+c.state); c.resume().then(() => diag('resume ok: '+c.state), e => diag('resume FAILED: '+e.name+' '+e.message)); }
 if (DIAG){
   const box = document.createElement('pre');
@@ -1367,7 +1370,7 @@ if (DIAG){
     L.push('view '+innerWidth+'x'+innerHeight+'  screen '+screen.width+'x'+screen.height+'  scrollY '+scrollY);
     L.push('visual '+(vv ? f1(vv.width)+'x'+f1(vv.height)+' top '+f1(vv.offsetTop)+' scale '+f1(vv.scale) : 'n/a')+'  inset top '+getComputedStyle(probe).paddingTop+'  panel top '+f1(pr.top));
     L.push('visible '+document.visibilityState+'  focus '+document.hasFocus());
-    box.textContent = L.join('\n')+'\n—\n'+diagEvents.join('\n');
+    box.textContent = L.join('\n')+'\n— key events —\n'+diagKey.join('\n')+'\n— latest —\n'+diagEvents.join('\n');
   }, 250);
   ['visibilitychange','pageshow','pagehide','focus','blur','resize','orientationchange'].forEach(n => addEventListener(n, () => diag(n+(n === 'visibilitychange' ? ' '+document.visibilityState : '')), true));
   addEventListener('pointerdown', e => { const h = document.elementFromPoint(e.clientX, e.clientY); diag('touch y '+Math.round(e.clientY)+' screenY '+Math.round(e.screenY)+' on '+(h ? (h.tagName+' '+(h.textContent || h.id || '').trim().slice(0, 18)) : '-')); }, true);
@@ -1375,7 +1378,7 @@ if (DIAG){
 }
 function ensureAudioCtx(){
   if (!audioCtx){ const c = audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    diag('engine created: '+c.state);
+    diag('engine created: '+c.state+', '+c.sampleRate+' Hz');
     c.onstatechange = () => { diag('engine '+(c === audioCtx ? '' : '(old) ')+'→ '+c.state); if (c === audioCtx && c.state !== 'running' && c.state !== 'closed') audioInterrupted = true; }; }   // the OS paused it (iPad: app hidden, state 'interrupted'); see reviveAudio
   else if (audioCtx.state !== 'running' && audioCtx.state !== 'closed') resumeCtx('source button');   // paused by the OS (iPad: app hidden); pressing a source button brings it back
   if (!analyser){
@@ -1418,7 +1421,7 @@ function connectSource(node){
   if (ui.setDot) ui.setDot('audio', true);
 }
 function stopDisplayStream(){ if (displayStream){ try { displayStream.getTracks().forEach(t=>t.stop()); } catch(e){} displayStream = null; } }
-function stopMicStream(){ if (micStream){ try { micStream.getTracks().forEach(t=>t.stop()); } catch(e){} micStream = null; } ui.micRow.style.display = 'none'; }
+function stopMicStream(){ if (micStream){ diag('mic stopped (engine '+(audioCtx ? audioCtx.state+', '+audioCtx.sampleRate+' Hz, clock '+audioCtx.currentTime.toFixed(1) : 'none')+')'); try { micStream.getTracks().forEach(t=>t.stop()); } catch(e){} micStream = null; } ui.micRow.style.display = 'none'; }
 function setAudioStatus(t){ ui.audioStatus.textContent = t; }
 /* Screen Wake Lock: held while an audio source is live (the Audio status dot is on; ui.setDot drives it), so the screen does not auto-lock mid-set (iPad).
    The browser drops it whenever the page is hidden, so it is asked for again on becoming visible. No API, or a refusal: nothing happens and nothing is logged. */
