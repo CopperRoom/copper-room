@@ -2103,12 +2103,14 @@ function buildUI(){
 }
 
 /* ---------------------------------------------------------------- recording (ported from prototype) */
-// The record canvas is a WebGL2 canvas of its own: each frame the finished picture goes into its texture GPU to GPU and is drawn cover-fit, and the
-// browser hands a WebGL canvas to the encoder without reading it back to main memory. A 2D record canvas cost ~40 % of the frame rate at 4K
-// (Build 80, M4). 2D stays as the fallback when a second WebGL2 context is refused.
-const recordCanvas = document.createElement('canvas'); recordCanvas.width = 1920; recordCanvas.height = 1080;
-const recGL = recordCanvas.getContext('webgl2', {antialias:false, alpha:false, depth:false, stencil:false});
-const recordCtx = recGL ? null : recordCanvas.getContext('2d');
+// Two record canvases; the first recording picks one by timing the copy (recGLFast). WebGL2: each frame the finished picture goes into its texture
+// and is drawn cover-fit, and Chromium hands a WebGL canvas to the encoder without reading it back to main memory (a 2D record canvas cost ~40 %
+// of the frame rate at 4K on the M4, Build 80). But where that copy itself goes through main memory (WebKit: ~12 ms a frame, iPad 30 → 15 fps,
+// Build 81) the 2D canvas is faster. 2D is also the fallback when a second WebGL2 context is refused.
+const recordCanvasGL = document.createElement('canvas'), recordCanvas2D = document.createElement('canvas');
+const recGL = recordCanvasGL.getContext('webgl2', {antialias:false, alpha:false, depth:false, stencil:false});
+const recordCtx = recordCanvas2D.getContext('2d');
+let recordCanvas = recordCanvas2D, recUseGL = null;   // null until the first recording measures it
 let recScaleLoc = null;
 if (recGL){
   const sh = (type, src) => { const x = recGL.createShader(type); recGL.shaderSource(x, src); recGL.compileShader(x);
@@ -2155,6 +2157,7 @@ function startRecording(){
     l.gain.value = 0; dryBus.connect(up); up.connect(split); split.connect(merge, 0, 0); split.connect(r, 1); r.connect(merge, 0, 1); split.connect(l, 0); l.connect(merge, 0, 1); merge.connect(recordDest);
     recFold = {on:false, r, l};
   }
+  recordCanvas = recGLFast() ? recordCanvasGL : recordCanvas2D;
   const is4k = ui.recRes.value === '4k'; recordCanvas.width = is4k ? 3840 : 1920; recordCanvas.height = is4k ? 2160 : 1080;
   const mimeType = pickRecordMimeType(recordCanvas.width);
   if (!mimeType){ ui.recStatus.textContent = 'No usable video encoder at that resolution — try 1080p.'; return; }
@@ -2180,9 +2183,16 @@ function stopRecording(){
   clearInterval(recordTimerId); if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
   ui.recBtn.textContent = 'Record (R)'; ui.recBtn.classList.remove('active'); ui.setDot('rec', false);
 }
+function recGLFast(){   // time the WebGL copy once: median of 3 after a warm-up; under 2 ms means GPU to GPU (Chromium ~0.1, WebKit ~12)
+  if (recUseGL !== null) return recUseGL;
+  if (!recGL) return (recUseGL = false);
+  const t = [];
+  for (let i = 0; i < 4; i++){ const t0 = performance.now(); recGL.texImage2D(recGL.TEXTURE_2D, 0, recGL.RGBA, recGL.RGBA, recGL.UNSIGNED_BYTE, canvas); if (i) t.push(performance.now() - t0); }
+  t.sort((a, b) => a - b); return (recUseGL = t[1] < 2);
+}
 function copyToRecordCanvas(){ // cover-fit, no letterbox — only runs while recording, right after the final pass
   const cw = recordCanvas.width, ch = recordCanvas.height, sw = canvas.width, sh = canvas.height, sc = Math.max(cw/sw, ch/sh);
-  if (!recGL){ const dw = sw*sc, dh = sh*sc; recordCtx.drawImage(canvas, (cw-dw)/2, (ch-dh)/2, dw, dh); return; }
+  if (recordCanvas === recordCanvas2D){ const dw = sw*sc, dh = sh*sc; recordCtx.drawImage(canvas, (cw-dw)/2, (ch-dh)/2, dw, dh); return; }
   recGL.viewport(0, 0, cw, ch); recGL.texImage2D(recGL.TEXTURE_2D, 0, recGL.RGBA, recGL.RGBA, recGL.UNSIGNED_BYTE, canvas);
   recGL.uniform2f(recScaleLoc, cw/(sw*sc), ch/(sh*sc)); recGL.drawArrays(recGL.TRIANGLES, 0, 3);
 }
