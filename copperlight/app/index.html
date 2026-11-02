@@ -1339,7 +1339,8 @@ let bassFilter, bassAnalyser, bassData, midFilterHP, midFilterLP, midAnalyser, m
 let clickHP, clickLP, clickAnalyser, clickData, trebleHP, trebleAnalyser, trebleData;
 let freqData, timeData, stereoSrc = true;
 function ensureAudioCtx(){
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!audioCtx){ const c = audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    c.onstatechange = () => { if (c === audioCtx && c.state !== 'running' && c.state !== 'closed') audioInterrupted = true; }; }   // the OS paused it (iPad: app hidden, state 'interrupted'); see reviveAudio
   else if (audioCtx.state !== 'running' && audioCtx.state !== 'closed') audioCtx.resume().catch(()=>{});   // paused by the OS (iPad: app hidden); pressing a source button brings it back
   if (!analyser){
     analyser = audioCtx.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0;
@@ -1397,19 +1398,32 @@ async function syncWakeLock(){
   wakeBusy = false;
   if (wakeWanted !== want) syncWakeLock();   // the source came or went while the request was pending
 }
-/* Coming back to the app (iPad: after it was hidden) the OS has paused the audio engine and may have ended the mic track; nothing brought either back,
-   so the source stayed silent until a relaunch. Resume the engine, and reopen the mic (same device) if its track ended. Also tried on the next touch or
-   click, since the OS may only allow resuming after one. Cheap no-op while everything is running (always, in a desktop browser). */
-let micReviving = false;
+/* Coming back to the app (iPad: after it was hidden) the OS has paused the audio engine and may have ended the mic track. Resuming the engine and
+   reopening the mic was not enough (Build 55: "Mic connected", meter flat, touches and the Mic button did nothing); only a relaunch, i.e. a new
+   AudioContext, brought the sound back. So once the OS has interrupted the context (audioInterrupted, set in ensureAudioCtx) and Mic is the source,
+   the whole analysis graph is rebuilt in a new context and the mic reopened on the same device. Otherwise the context is only resumed. Also tried on the
+   next touch or click, since the OS may only allow it after one. A desktop browser never interrupts the context, so there this is a no-op. */
+let micReviving = false, audioInterrupted = false;
+function rebuildAudioCtx(){   // every node lives in ensureAudioCtx and reads its settings from S / P, so a rebuild keeps Input Gain, Kick Band etc.
+  const old = audioCtx;
+  if (sourceNode){ try { sourceNode.disconnect(); } catch(e){} sourceNode = null; }
+  audioCtx = null; analyser = null; recordDest = null; audioInterrupted = false;
+  if (old) old.close().catch(()=>{});
+  ensureAudioCtx();
+}
 function reviveAudio(){
-  if (!audioCtx || document.visibilityState !== 'visible') return;
-  if (audioCtx.state !== 'running' && audioCtx.state !== 'closed') audioCtx.resume().catch(()=>{});
+  if (!audioCtx || document.visibilityState !== 'visible' || micReviving) return;
   const t = micStream && micStream.getAudioTracks()[0];
-  if (t && t.readyState === 'ended' && !micReviving){ micReviving = true; useMic(ui.micSel.value || undefined).finally(() => { micReviving = false; }); }
+  if (t && (audioInterrupted || t.readyState === 'ended')){
+    micReviving = true; rebuildAudioCtx();
+    useMic(ui.micSel.value || undefined).finally(() => { micReviving = false; });
+    return;
+  }
+  if (audioCtx.state !== 'running' && audioCtx.state !== 'closed') audioCtx.resume().catch(()=>{});
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible'){ syncWakeLock(); reviveAudio(); } });
 addEventListener('pageshow', reviveAudio);
-addEventListener('pointerdown', reviveAudio, true);
+addEventListener('pointerdown', reviveAudio, true); addEventListener('pointerup', reviveAudio, true);   // a mouse may start audio on press, a finger only on lift (iPadOS)
 // What the browser actually delivered for a captured track: "Raw: echo off, AGC off, NS off, 2 ch, 48 kHz", plus a plain warning for any processing left on.
 function rawAudioReport(track){
   const st = (track && track.getSettings) ? track.getSettings() : {};
@@ -1753,7 +1767,7 @@ function buildUI(){
   ui.dbgOn = false; ui.dbgBtn.onclick = () => { ui.dbgOn = !ui.dbgOn; ui.dbgBtn.classList.toggle('active', ui.dbgOn); ui.dbgCv.style.display = ui.dbgOn ? 'block' : 'none'; };
   ui.micRow = el('div', {className:'row'}); ui.micRow.style.display = 'none';
   ui.micRow.innerHTML = '<label><span>Input device</span></label>'; ui.micSel = el('select'); ui.micRow.appendChild(ui.micSel); b.appendChild(ui.micRow);
-  const fin = el('input', {type:'file', accept:'audio/*,.wav,.wave,.mp3,.flac,.aif,.aiff,.m4a,.aac,.ogg,.oga,.opus,.weba,.wma', multiple:true});   // the extensions as well: iPadOS's Files picker greyed out audio files with audio/* alone (same list as AUDIO_EXT) fin.style.display = 'none'; b.appendChild(fin);
+  const fin = el('input', {type:'file', accept:'audio/*,.wav,.wave,.mp3,.flac,.aif,.aiff,.m4a,.aac,.ogg,.oga,.opus,.weba,.wma', multiple:true}); fin.style.display = 'none'; b.appendChild(fin);   // the extensions as well: iPadOS's Files picker greyed out audio files with audio/* alone (same list as AUDIO_EXT)
   bMic.onclick = () => {
     detachMonitor();
     const lab = lsGet('copperlightV1_micLabel', '');
@@ -1762,7 +1776,8 @@ function buildUI(){
     } else useMic();
   };
   bSys.onclick = () => { detachMonitor(); useSystemAudio(); };
-  bFile.onclick = () => fin.click(); fin.onchange = () => { if (fin.files.length) addAudioFiles(Array.from(fin.files)); fin.value = ''; };
+  // File starts (or resumes) the engine inside the tap: iPadOS doesn't count the picker closing as one, so an engine made there stayed paused and the file played silent
+  bFile.onclick = () => { ensureAudioCtx(); fin.click(); }; fin.onchange = () => { if (fin.files.length) addAudioFiles(Array.from(fin.files)); fin.value = ''; };
   ui.micSel.onchange = () => { if (ui.micSel.value) useMic(ui.micSel.value); };
   ui.playBtn.onclick = () => { if (!mediaEl) return; if (mediaEl.paused) mediaEl.play(); else mediaEl.pause(); };
   ui.seek.oninput = () => { ui.seeking = true; if (mediaEl && mediaEl.duration) mediaEl.currentTime = ui.seek.value/1000*mediaEl.duration; };
