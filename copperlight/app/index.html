@@ -1340,7 +1340,7 @@ let clickHP, clickLP, clickAnalyser, clickData, trebleHP, trebleAnalyser, treble
 let freqData, timeData, stereoSrc = true;
 /* TEMPORARY iPad diagnostics (Build 58, remove once the iPad audio and touch-offset bugs are understood). Shown only in a Home Screen launch
    (standalone), so a Safari tab and every desktop browser look and behave as before. Live state at the top, the last events below (seconds since launch). */
-const TEST_BUILD = 60;   // TEMPORARY build number beside v1.0 in the panel (and in the readout), so João can tell which build the iPad loaded; bump every build, remove when asked
+const TEST_BUILD = 62;   // TEMPORARY build number beside v1.0 in the panel (and in the readout), so João can tell which build the iPad loaded; bump every build, remove when asked
 const DIAG = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
 const diagEvents = [], diagT0 = performance.now();
 function diag(msg){ if (!DIAG) return; diagEvents.push(((performance.now()-diagT0)/1000).toFixed(1)+'  '+msg); if (diagEvents.length > 22) diagEvents.shift(); }
@@ -1357,7 +1357,8 @@ if (DIAG){
     if (audioCtx){ const ct = audioCtx.currentTime; L.push('engine '+audioCtx.state+'  '+audioCtx.sampleRate+' Hz  clock '+f1(ct)+(ct === lastCt ? ' (STOPPED)' : '')+'  interrupted '+audioInterrupted); lastCt = ct; }
     else L.push('engine: none yet');
     let lvl = 0; if (analyser && timeData){ analyser.getByteTimeDomainData(timeData); for (let i = 0; i < timeData.length; i++) lvl = Math.max(lvl, Math.abs(timeData[i]-128)); }
-    L.push('source '+(micStream ? 'mic' : fileLive() ? 'file' : sourceNode ? 'other' : 'none')+'  input peak '+lvl+'/128');
+    const pk = a => { if (!a) return '-'; const d = new Uint8Array(a.fftSize); a.getByteTimeDomainData(d); let m = 0; for (let i = 0; i < d.length; i++) m = Math.max(m, Math.abs(d[i]-128)); return m; };
+    L.push('source '+(micStream ? 'mic' : fileLive() ? 'file' : sourceNode ? 'other' : 'none')+'  input peak '+lvl+'/128  L '+pk(analyserL)+' R '+pk(analyserR));
     const t = micStream && micStream.getAudioTracks()[0];
     if (t) L.push('mic track '+t.readyState+(t.muted ? ' MUTED' : '')+(t.enabled ? '' : ' disabled'));
     if (mediaEl){ const e = mediaEl, b = e.buffered.length ? e.buffered.end(e.buffered.length-1) : 0;
@@ -1439,7 +1440,7 @@ async function syncWakeLock(){
    clock stops while the app is visible, and so does an OS interruption that is reported (audioInterrupted) or an ended mic track; recoverEngine then
    reconnects whatever source was live (a live mic track as it is, no new permission prompt). Otherwise the context is only resumed, which is also tried
    on the next touch or click, since the OS may only allow it after one. A desktop browser's context never stops, so there all of this is a no-op. */
-let micReviving = false, audioInterrupted = false, pendingPlay = null;
+let micReviving = false, audioInterrupted = false, pendingPlay = null, lastMicDevice;   // lastMicDevice: the deviceId (or undefined = default) of the last mic that opened
 let lastRecover = -1e9;
 const holdPaused = new WeakSet();   // a file element recreated paused by recoverEngine: a blocked start must not become a pending one
 function rebuildAudioCtx(){   // every node lives in ensureAudioCtx and reads its settings from S / P, so a rebuild keeps Input Gain, Kick Band etc.
@@ -1456,8 +1457,9 @@ function recoverEngine(why){   // new context, then the source that was live: mi
   const pos = file ? mediaEl.currentTime : 0, playing = file && !mediaEl.paused;
   diag('recover engine ('+why+'): '+(mt ? 'mic '+mt.readyState : file ? 'file at '+pos.toFixed(1)+(playing ? ' playing' : ' paused') : sys ? 'system' : 'no source'));
   rebuildAudioCtx();
-  if (mt && mt.readyState === 'live') connectSource(audioCtx.createMediaStreamSource(micStream));
-  else if (mt){ micReviving = true; useMic(ui.micSel.value || undefined).finally(() => { micReviving = false; }); }
+  // Mic: always a fresh capture. On the iPad the old track still reads live and unmuted after a return but delivers silence (Build 60 readout);
+  // a new getUserMedia worked at once. Asked for the same way as the last successful open (lastMicDevice), so a default mic stays the default.
+  if (mt){ micReviving = true; useMic(lastMicDevice).finally(() => { micReviving = false; }); }
   else if (sys) connectSource(audioCtx.createMediaStreamSource(sys));
   else if (file){
     useFile(audioList[audioIdx]); const me = mediaEl;
@@ -1534,11 +1536,16 @@ async function useMic(deviceId){
   if (micStream){ try { micStream.getTracks().forEach(t=>t.stop()); } catch(e){} micStream = null; }
   try {
     const c = {audio:{channelCount:{ideal:16}, echoCancellation:false, noiseSuppression:false, autoGainControl:false}};
+    // With a single audio input there is nothing to choose, so ask for the default: on the iPad, asking for the device by id gave a mono capture
+    // where the default gave stereo (João, Build 60). With several inputs the chosen one is still asked for by id.
+    if (deviceId){ try { const ins = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput'); if (ins.length <= 1) deviceId = undefined; } catch(e){} }
     if (deviceId) c.audio.deviceId = {exact:deviceId};
-    diag('mic: asking'+(deviceId ? ' (device)' : ''));
+    diag('mic: asking'+(deviceId ? ' (device)' : ' (default)'));
     micStream = await navigator.mediaDevices.getUserMedia(c);
+    lastMicDevice = deviceId;
     { const tr = micStream.getAudioTracks()[0]; diag('mic: got track '+(tr ? tr.readyState+(tr.muted ? ' MUTED' : '') : 'none'));
-      if (tr) ['ended','mute','unmute'].forEach(n => tr.addEventListener(n, () => diag('mic track '+n))); }
+      if (tr){ const st = tr.getSettings ? tr.getSettings() : {}; diag('mic settings: '+(st.channelCount || '?')+' ch, '+(st.sampleRate || '?')+' Hz');
+        ['ended','mute','unmute'].forEach(n => tr.addEventListener(n, () => diag('mic track '+n))); } }
     connectSource(audioCtx.createMediaStreamSource(micStream)); ui.setSrc('mic');
     const t = micStream.getAudioTracks()[0]; const ch = t && t.getSettings().channelCount;
     setAudioStatus('Mic / line-in connected'+(t&&t.label?' ('+t.label+(ch?' — '+ch+'ch':'')+')':'')+'.'); ui.fileRow.style.display = 'none';
@@ -1612,7 +1619,7 @@ function useFile(file){
   { const me = mediaEl;   // listeners belong to their own element: an old one (paused on track change or Clear) must not touch the current transport
     me.addEventListener('timeupdate', () => { if (me !== mediaEl) return; if (!ui.seeking){ ui.seek.value = me.duration ? me.currentTime/me.duration*1000 : 0; } ui.tCur.textContent = fmtTime(me.currentTime); ui.tDur.textContent = fmtTime(me.duration||0); });
     me.addEventListener('play', () => { if (me === mediaEl) ui.playBtn.textContent = 'Pause'; }); me.addEventListener('pause', () => { if (me === mediaEl) ui.playBtn.textContent = 'Play'; }); }
-  { const me = mediaEl; me.addEventListener('playing', () => { if (pendingPlay === me){ pendingPlay = null; setAudioStatus('Local file connected.'); } }); me.play().then(() => diag('file play() ok'), e => { diag('file play() FAILED: '+e.name);
+  { const me = mediaEl; me.play().then(() => diag('file play() ok'), e => { diag('file play() FAILED: '+e.name);
       // iPadOS only lets a file start on a tap, and the picker closing isn't one: the next touch starts it (reviveAudio)
       if (e.name === 'NotAllowedError' && me === mediaEl && !holdPaused.has(me)){ pendingPlay = me; ui.playBtn.textContent = 'Play'; setAudioStatus('Tap anywhere to start the file.'); } }); }
   setAudioStatus('Local file connected.'); ui.fileRow.style.display = 'block'; if (!audioList.includes(file)){ audioList = [file]; audioIdx = 0; } updateTransportUI();
@@ -1852,7 +1859,9 @@ function buildUI(){
   // File starts (or resumes) the engine inside the tap: iPadOS doesn't count the picker closing as one, so an engine made there stayed paused and the file played silent
   bFile.onclick = () => { diag('File tapped'); ensureAudioCtx(); fin.click(); }; fin.onchange = () => { diag('picker closed: '+fin.files.length+' file(s)'); if (fin.files.length) addAudioFiles(Array.from(fin.files)); fin.value = ''; };
   ui.micSel.onchange = () => { if (ui.micSel.value) useMic(ui.micSel.value); };
-  ui.playBtn.onclick = () => { if (!mediaEl) return; if (mediaEl.paused) mediaEl.play(); else mediaEl.pause(); };
+  ui.playBtn.onclick = () => { if (!mediaEl) return;
+    if (pendingPlay === mediaEl){ pendingPlay = null; setAudioStatus('Local file connected.'); }   // a blocked start (iPad) is settled by Play too; iPadOS fires a brief 'playing' on the blocked start, so that event can't clear it
+    if (mediaEl.paused) mediaEl.play(); else mediaEl.pause(); };
   ui.seek.oninput = () => { ui.seeking = true; if (mediaEl && mediaEl.duration) mediaEl.currentTime = ui.seek.value/1000*mediaEl.duration; };
   ui.seek.onchange = () => { ui.seeking = false; };
   const seekBy = d => { if (mediaEl && mediaEl.duration) mediaEl.currentTime = Math.max(0, Math.min(mediaEl.duration-0.05, mediaEl.currentTime+d)); };
