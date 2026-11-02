@@ -1338,10 +1338,44 @@ let inGainNode, dryBus;   // source -> inGainNode (Input Gain) -> every analysis
 let bassFilter, bassAnalyser, bassData, midFilterHP, midFilterLP, midAnalyser, midData, splitter, analyserL, analyserR, dataL, dataR;
 let clickHP, clickLP, clickAnalyser, clickData, trebleHP, trebleAnalyser, trebleData;
 let freqData, timeData, stereoSrc = true;
+/* TEMPORARY iPad diagnostics (Build 58, remove once the iPad audio and touch-offset bugs are understood). Shown only in a Home Screen launch
+   (standalone), so a Safari tab and every desktop browser look and behave as before. Live state at the top, the last events below (seconds since launch). */
+const DIAG = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+const diagEvents = [], diagT0 = performance.now();
+function diag(msg){ if (!DIAG) return; diagEvents.push(((performance.now()-diagT0)/1000).toFixed(1)+'  '+msg); if (diagEvents.length > 22) diagEvents.shift(); }
+function resumeCtx(why){ const c = audioCtx; diag('resume ('+why+') from '+c.state); c.resume().then(() => diag('resume ok: '+c.state), e => diag('resume FAILED: '+e.name+' '+e.message)); }
+if (DIAG){
+  const box = document.createElement('pre');
+  box.style.cssText = 'position:fixed;right:8px;top:calc(8px + env(safe-area-inset-top));z-index:50;margin:0;padding:6px 8px;max-width:46vw;white-space:pre-wrap;font:10px/1.3 ui-monospace,Menlo,monospace;color:#e8e4dc;background:rgba(0,0,0,.72);border:1px solid #b47830;pointer-events:none;';
+  document.body.appendChild(box);
+  const probe = document.createElement('div'); probe.style.cssText = 'position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top);'; document.body.appendChild(probe);
+  const f1 = v => (typeof v === 'number' && isFinite(v)) ? v.toFixed(1) : String(v);
+  let lastCt = -1;
+  setInterval(() => {
+    const L = [];
+    if (audioCtx){ const ct = audioCtx.currentTime; L.push('engine '+audioCtx.state+'  '+audioCtx.sampleRate+' Hz  clock '+f1(ct)+(ct === lastCt ? ' (STOPPED)' : '')+'  interrupted '+audioInterrupted); lastCt = ct; }
+    else L.push('engine: none yet');
+    let lvl = 0; if (analyser && timeData){ analyser.getByteTimeDomainData(timeData); for (let i = 0; i < timeData.length; i++) lvl = Math.max(lvl, Math.abs(timeData[i]-128)); }
+    L.push('source '+(micStream ? 'mic' : fileLive() ? 'file' : sourceNode ? 'other' : 'none')+'  input peak '+lvl+'/128');
+    const t = micStream && micStream.getAudioTracks()[0];
+    if (t) L.push('mic track '+t.readyState+(t.muted ? ' MUTED' : '')+(t.enabled ? '' : ' disabled'));
+    if (mediaEl){ const e = mediaEl, b = e.buffered.length ? e.buffered.end(e.buffered.length-1) : 0;
+      L.push('file ready '+e.readyState+' net '+e.networkState+(e.paused ? ' paused' : ' playing')+'  '+f1(e.currentTime)+'/'+f1(e.duration)+'  buffered '+f1(b)+(e.error ? '  ERROR '+e.error.code : '')); }
+    const vv = window.visualViewport, pr = panel.getBoundingClientRect();
+    L.push('view '+innerWidth+'x'+innerHeight+'  screen '+screen.width+'x'+screen.height+'  scrollY '+scrollY);
+    L.push('visual '+(vv ? f1(vv.width)+'x'+f1(vv.height)+' top '+f1(vv.offsetTop)+' scale '+f1(vv.scale) : 'n/a')+'  inset top '+getComputedStyle(probe).paddingTop+'  panel top '+f1(pr.top));
+    L.push('visible '+document.visibilityState+'  focus '+document.hasFocus());
+    box.textContent = L.join('\n')+'\n—\n'+diagEvents.join('\n');
+  }, 250);
+  ['visibilitychange','pageshow','pagehide','focus','blur','resize','orientationchange'].forEach(n => addEventListener(n, () => diag(n+(n === 'visibilitychange' ? ' '+document.visibilityState : '')), true));
+  addEventListener('pointerdown', e => { const h = document.elementFromPoint(e.clientX, e.clientY); diag('touch y '+Math.round(e.clientY)+' screenY '+Math.round(e.screenY)+' on '+(h ? (h.tagName+' '+(h.textContent || h.id || '').trim().slice(0, 18)) : '-')); }, true);
+  diag('launch (standalone)');
+}
 function ensureAudioCtx(){
   if (!audioCtx){ const c = audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    c.onstatechange = () => { if (c === audioCtx && c.state !== 'running' && c.state !== 'closed') audioInterrupted = true; }; }   // the OS paused it (iPad: app hidden, state 'interrupted'); see reviveAudio
-  else if (audioCtx.state !== 'running' && audioCtx.state !== 'closed') audioCtx.resume().catch(()=>{});   // paused by the OS (iPad: app hidden); pressing a source button brings it back
+    diag('engine created: '+c.state);
+    c.onstatechange = () => { diag('engine '+(c === audioCtx ? '' : '(old) ')+'→ '+c.state); if (c === audioCtx && c.state !== 'running' && c.state !== 'closed') audioInterrupted = true; }; }   // the OS paused it (iPad: app hidden, state 'interrupted'); see reviveAudio
+  else if (audioCtx.state !== 'running' && audioCtx.state !== 'closed') resumeCtx('source button');   // paused by the OS (iPad: app hidden); pressing a source button brings it back
   if (!analyser){
     analyser = audioCtx.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0;
     freqData = new Uint8Array(analyser.frequencyBinCount); timeData = new Uint8Array(analyser.frequencyBinCount);
@@ -1415,11 +1449,12 @@ function reviveAudio(){
   if (!audioCtx || document.visibilityState !== 'visible' || micReviving) return;
   const t = micStream && micStream.getAudioTracks()[0];
   if (t && (audioInterrupted || t.readyState === 'ended')){
+    diag('revive: rebuild engine + reopen mic (interrupted '+audioInterrupted+', track '+t.readyState+')');
     micReviving = true; rebuildAudioCtx();
     useMic(ui.micSel.value || undefined).finally(() => { micReviving = false; });
     return;
   }
-  if (audioCtx.state !== 'running' && audioCtx.state !== 'closed') audioCtx.resume().catch(()=>{});
+  if (audioCtx.state !== 'running' && audioCtx.state !== 'closed') resumeCtx('revive');
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible'){ syncWakeLock(); reviveAudio(); } });
 addEventListener('pageshow', reviveAudio);
@@ -1470,12 +1505,15 @@ async function useMic(deviceId){
   try {
     const c = {audio:{channelCount:{ideal:16}, echoCancellation:false, noiseSuppression:false, autoGainControl:false}};
     if (deviceId) c.audio.deviceId = {exact:deviceId};
+    diag('mic: asking'+(deviceId ? ' (device)' : ''));
     micStream = await navigator.mediaDevices.getUserMedia(c);
+    { const tr = micStream.getAudioTracks()[0]; diag('mic: got track '+(tr ? tr.readyState+(tr.muted ? ' MUTED' : '') : 'none'));
+      if (tr) ['ended','mute','unmute'].forEach(n => tr.addEventListener(n, () => diag('mic track '+n))); }
     connectSource(audioCtx.createMediaStreamSource(micStream)); ui.setSrc('mic');
     const t = micStream.getAudioTracks()[0]; const ch = t && t.getSettings().channelCount;
     setAudioStatus('Mic / line-in connected'+(t&&t.label?' ('+t.label+(ch?' — '+ch+'ch':'')+')':'')+'.'); ui.fileRow.style.display = 'none';
     await populateMicDeviceSelect();
-  } catch(err){ setAudioStatus('Mic access denied or unavailable: '+err.message); }
+  } catch(err){ diag('mic FAILED: '+err.name+' '+err.message); setAudioStatus('Mic access denied or unavailable: '+err.message); }
 }
 function fmtTime(s){ s = Math.max(0, s|0); return (s/60|0)+':'+String(s%60).padStart(2,'0'); }
 let audioList = [], audioIdx = 0, audioRepeat = 'all', mediaSrcNode = null;   // repeat: 'all' | 'one' | 'off', runtime only (never persisted). mediaSrcNode = mediaEl's graph node, to tell whether File is the live source
@@ -1533,7 +1571,9 @@ function updateTransportUI(){
 function useFile(file){
   ensureAudioCtx(); stopDisplayStream(); stopMicStream();
   if (mediaEl) mediaEl.pause();
-  mediaEl = new Audio(); mediaEl.src = URL.createObjectURL(file);   // mediaEl.loop is set in updateTransportUI (repeat one, or repeat all with a single file)
+  mediaEl = new Audio(); mediaEl.src = URL.createObjectURL(file);
+  if (DIAG){ const me = mediaEl; diag('file: '+file.name.slice(0, 24)+' '+(file.size/1e6).toFixed(1)+' MB, engine '+audioCtx.state);
+    ['loadstart','loadedmetadata','canplay','canplaythrough','play','playing','waiting','stalled','suspend','pause','error','ended'].forEach(n => me.addEventListener(n, () => { if (me === mediaEl) diag('file '+n+(n === 'error' && me.error ? ' '+me.error.code : '')); })); }   // mediaEl.loop is set in updateTransportUI (repeat one, or repeat all with a single file)
   { const me = mediaEl; me.addEventListener('ended', () => {   // 'one' loops and never ends; 'all' wraps after the last track; 'off' stops there
       if (me !== mediaEl || !fileLive()) return;
       if (audioIdx < audioList.length-1) playTrack(audioIdx+1); else if (audioRepeat === 'all' && audioList.length > 1) playTrack(0); }); }
@@ -1542,7 +1582,7 @@ function useFile(file){
   { const me = mediaEl;   // listeners belong to their own element: an old one (paused on track change or Clear) must not touch the current transport
     me.addEventListener('timeupdate', () => { if (me !== mediaEl) return; if (!ui.seeking){ ui.seek.value = me.duration ? me.currentTime/me.duration*1000 : 0; } ui.tCur.textContent = fmtTime(me.currentTime); ui.tDur.textContent = fmtTime(me.duration||0); });
     me.addEventListener('play', () => { if (me === mediaEl) ui.playBtn.textContent = 'Pause'; }); me.addEventListener('pause', () => { if (me === mediaEl) ui.playBtn.textContent = 'Play'; }); }
-  mediaEl.play().catch(()=>{}); setAudioStatus('Local file connected.'); ui.fileRow.style.display = 'block'; if (!audioList.includes(file)){ audioList = [file]; audioIdx = 0; } updateTransportUI();
+  mediaEl.play().then(() => diag('file play() ok'), e => diag('file play() FAILED: '+e.name)); setAudioStatus('Local file connected.'); ui.fileRow.style.display = 'block'; if (!audioList.includes(file)){ audioList = [file]; audioIdx = 0; } updateTransportUI();
 }
 function detachMonitor(){ if (audioCtx && dryBus){ try { dryBus.disconnect(audioCtx.destination); } catch(e){} } }
 
@@ -1777,7 +1817,7 @@ function buildUI(){
   };
   bSys.onclick = () => { detachMonitor(); useSystemAudio(); };
   // File starts (or resumes) the engine inside the tap: iPadOS doesn't count the picker closing as one, so an engine made there stayed paused and the file played silent
-  bFile.onclick = () => { ensureAudioCtx(); fin.click(); }; fin.onchange = () => { if (fin.files.length) addAudioFiles(Array.from(fin.files)); fin.value = ''; };
+  bFile.onclick = () => { diag('File tapped'); ensureAudioCtx(); fin.click(); }; fin.onchange = () => { diag('picker closed: '+fin.files.length+' file(s)'); if (fin.files.length) addAudioFiles(Array.from(fin.files)); fin.value = ''; };
   ui.micSel.onchange = () => { if (ui.micSel.value) useMic(ui.micSel.value); };
   ui.playBtn.onclick = () => { if (!mediaEl) return; if (mediaEl.paused) mediaEl.play(); else mediaEl.pause(); };
   ui.seek.oninput = () => { ui.seeking = true; if (mediaEl && mediaEl.duration) mediaEl.currentTime = ui.seek.value/1000*mediaEl.duration; };
