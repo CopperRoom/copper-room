@@ -1340,7 +1340,7 @@ let clickHP, clickLP, clickAnalyser, clickData, trebleHP, trebleAnalyser, treble
 let freqData, timeData, stereoSrc = true;
 /* TEMPORARY iPad diagnostics (Build 58, remove once the iPad audio and touch-offset bugs are understood). Shown only in a Home Screen launch
    (standalone), so a Safari tab and every desktop browser look and behave as before. Live state at the top, the last events below (seconds since launch). */
-const TEST_BUILD = 69;   // TEMPORARY build number beside v1.0 in the panel (and in the readout), so João can tell which build the iPad loaded; bump every build, remove when asked
+const TEST_BUILD = 70;   // TEMPORARY build number beside v1.0 in the panel (and in the readout), so João can tell which build the iPad loaded; bump every build, remove when asked
 const DIAG = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
 const diagEvents = [], diagKey = [], diagT0 = performance.now();
 const DIAG_KEY = /^(launch|prime|engine created|engine (\(old\) )?→|recover|resume FAILED|File|picker|mic: got|mic settings|mic FAILED|mic stopped|file: |file play\(\)|file error|touch: starting)/;   // pinned above the full log so routine file events can't push them out
@@ -1888,14 +1888,17 @@ function buildUI(){
   };
   bSys.onclick = () => { detachMonitor(); useSystemAudio(); };
   // File starts (or resumes) the engine inside the tap: iPadOS doesn't count the picker closing as one, so an engine made there stayed paused and the file played silent
-  // File while the mic is on: the mic goes off and a fresh engine is built inside this tap, before the picker. On the iPad an engine made while the mic
-  // ran (44.1 kHz) died, and took the file with it (decode error 3), the moment playback started (Build 64 readout); a fresh launch, mic never on, plays fine.
-  // A cancelled picker brings the mic back.
+  // File while the mic is on: the mic goes off in this tap, and a fresh engine is built when the picker closes, seconds later. EXPERIMENT (Build 70): an
+  // engine built in the same instant the mic stopped sometimes played a 44.1 kHz file heavily distorted on the iPad (the engine itself looked healthy;
+  // a rebuild cured it), so iPadOS gets time to finish switching from record to playback first. The start-tap starts the new engine. A cancelled
+  // picker brings the mic back.
   let micBeforeFile = false;
   bFile.onclick = () => { diag('File tapped');
-    if (micStream){ micBeforeFile = true; stopMicStream(); if (audioCtx){ rebuildAudioCtx(); diag('File: mic off, fresh engine '+audioCtx.sampleRate+' Hz, '+audioCtx.state); } }
+    if (micStream){ micBeforeFile = true; stopMicStream(); diag('File: mic off, engine rebuilt when the picker closes'); }
     ensureAudioCtx(); fin.click(); };
-  fin.onchange = () => { diag('picker closed: '+fin.files.length+' file(s)'); micBeforeFile = false; if (fin.files.length) addAudioFiles(Array.from(fin.files)); fin.value = ''; };
+  fin.onchange = () => { diag('picker closed: '+fin.files.length+' file(s)');
+    if (micBeforeFile && fin.files.length && audioCtx){ rebuildAudioCtx(); diag('File: fresh engine '+audioCtx.sampleRate+' Hz, '+audioCtx.state); }
+    micBeforeFile = false; if (fin.files.length) addAudioFiles(Array.from(fin.files)); fin.value = ''; };
   fin.addEventListener('cancel', () => { diag('picker cancelled'); if (micBeforeFile){ micBeforeFile = false; useMic(lastMicDevice); } });
   ui.micSel.onchange = () => { if (ui.micSel.value) useMic(ui.micSel.value); };
   ui.playBtn.onclick = () => { if (!mediaEl) return;
