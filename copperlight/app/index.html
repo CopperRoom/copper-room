@@ -1340,7 +1340,7 @@ let clickHP, clickLP, clickAnalyser, clickData, trebleHP, trebleAnalyser, treble
 let freqData, timeData, stereoSrc = true;
 /* TEMPORARY iPad diagnostics (Build 58, remove once the iPad audio and touch-offset bugs are understood). Shown only in a Home Screen launch
    (standalone), so a Safari tab and every desktop browser look and behave as before. Live state at the top, the last events below (seconds since launch). */
-const TEST_BUILD = 64;   // TEMPORARY build number beside v1.0 in the panel (and in the readout), so João can tell which build the iPad loaded; bump every build, remove when asked
+const TEST_BUILD = 65;   // TEMPORARY build number beside v1.0 in the panel (and in the readout), so João can tell which build the iPad loaded; bump every build, remove when asked
 const DIAG = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
 const diagEvents = [], diagT0 = performance.now();
 function diag(msg){ if (!DIAG) return; diagEvents.push(((performance.now()-diagT0)/1000).toFixed(1)+'  '+msg); if (diagEvents.length > 40) diagEvents.shift(); }
@@ -1610,7 +1610,7 @@ function useFile(file){
   if (mediaEl) mediaEl.pause();
   mediaEl = new Audio(); mediaEl.src = URL.createObjectURL(file);
   if (DIAG){ const me = mediaEl; diag('file: '+file.name.slice(0, 24)+' '+(file.size/1e6).toFixed(1)+' MB, engine '+audioCtx.state);
-    ['loadstart','loadedmetadata','canplay','canplaythrough','play','playing','waiting','stalled','suspend','pause','error','ended'].forEach(n => me.addEventListener(n, () => { if (me === mediaEl) diag('file '+n+(n === 'error' && me.error ? ' '+me.error.code : '')); })); }   // mediaEl.loop is set in updateTransportUI (repeat one, or repeat all with a single file)
+    ['loadstart','loadedmetadata','canplay','canplaythrough','play','playing','waiting','stalled','suspend','pause','error','ended'].forEach(n => me.addEventListener(n, () => { if (me === mediaEl) diag('file '+n+(n === 'error' && me.error ? ' '+me.error.code+' '+(me.error.message || '') : '')); })); }   // mediaEl.loop is set in updateTransportUI (repeat one, or repeat all with a single file)
   { const me = mediaEl; me.addEventListener('ended', () => {   // 'one' loops and never ends; 'all' wraps after the last track; 'off' stops there
       if (me !== mediaEl || !fileLive()) return;
       if (audioIdx < audioList.length-1) playTrack(audioIdx+1); else if (audioRepeat === 'all' && audioList.length > 1) playTrack(0); }); }
@@ -1857,7 +1857,15 @@ function buildUI(){
   };
   bSys.onclick = () => { detachMonitor(); useSystemAudio(); };
   // File starts (or resumes) the engine inside the tap: iPadOS doesn't count the picker closing as one, so an engine made there stayed paused and the file played silent
-  bFile.onclick = () => { diag('File tapped'); ensureAudioCtx(); fin.click(); }; fin.onchange = () => { diag('picker closed: '+fin.files.length+' file(s)'); if (fin.files.length) addAudioFiles(Array.from(fin.files)); fin.value = ''; };
+  // File while the mic is on: the mic goes off and a fresh engine is built inside this tap, before the picker. On the iPad an engine made while the mic
+  // ran (44.1 kHz) died, and took the file with it (decode error 3), the moment playback started (Build 64 readout); a fresh launch, mic never on, plays fine.
+  // A cancelled picker brings the mic back.
+  let micBeforeFile = false;
+  bFile.onclick = () => { diag('File tapped');
+    if (micStream){ micBeforeFile = true; stopMicStream(); if (audioCtx){ rebuildAudioCtx(); diag('File: mic off, fresh engine '+audioCtx.sampleRate+' Hz, '+audioCtx.state); } }
+    ensureAudioCtx(); fin.click(); };
+  fin.onchange = () => { diag('picker closed: '+fin.files.length+' file(s)'); micBeforeFile = false; if (fin.files.length) addAudioFiles(Array.from(fin.files)); fin.value = ''; };
+  fin.addEventListener('cancel', () => { diag('picker cancelled'); if (micBeforeFile){ micBeforeFile = false; useMic(lastMicDevice); } });
   ui.micSel.onchange = () => { if (ui.micSel.value) useMic(ui.micSel.value); };
   ui.playBtn.onclick = () => { if (!mediaEl) return;
     if (pendingPlay === mediaEl){ pendingPlay = null; setAudioStatus('Local file connected.'); }   // a blocked start (iPad) is settled by Play too; iPadOS fires a brief 'playing' on the blocked start, so that event can't clear it
