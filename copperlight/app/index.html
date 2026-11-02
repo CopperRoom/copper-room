@@ -1340,10 +1340,10 @@ let clickHP, clickLP, clickAnalyser, clickData, trebleHP, trebleAnalyser, treble
 let freqData, timeData, stereoSrc = true;
 /* TEMPORARY iPad diagnostics (Build 58, remove once the iPad audio and touch-offset bugs are understood). Shown only in a Home Screen launch
    (standalone), so a Safari tab and every desktop browser look and behave as before. Live state at the top, the last events below (seconds since launch). */
-const TEST_BUILD = 68;   // TEMPORARY build number beside v1.0 in the panel (and in the readout), so João can tell which build the iPad loaded; bump every build, remove when asked
+const TEST_BUILD = 69;   // TEMPORARY build number beside v1.0 in the panel (and in the readout), so João can tell which build the iPad loaded; bump every build, remove when asked
 const DIAG = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
 const diagEvents = [], diagKey = [], diagT0 = performance.now();
-const DIAG_KEY = /^(launch|engine created|engine (\(old\) )?→|recover|resume FAILED|File|picker|mic: got|mic settings|mic FAILED|mic stopped|file: |file play\(\)|file error|touch: starting)/;   // pinned above the full log so routine file events can't push them out
+const DIAG_KEY = /^(launch|prime|engine created|engine (\(old\) )?→|recover|resume FAILED|File|picker|mic: got|mic settings|mic FAILED|mic stopped|file: |file play\(\)|file error|touch: starting)/;   // pinned above the full log so routine file events can't push them out
 function diag(msg){ if (!DIAG) return; const line = ((performance.now()-diagT0)/1000).toFixed(1)+'  '+msg;
   diagEvents.push(line); if (diagEvents.length > 22) diagEvents.shift();
   if (DIAG_KEY.test(msg)){ diagKey.push(line); if (diagKey.length > 24) diagKey.shift(); } }
@@ -1541,11 +1541,25 @@ async function populateMicDeviceSelect(){
   if (lab) lsSet('copperlightV1_micLabel', lab);
   ui.micRow.style.display = 'block';
 }
+/* EXPERIMENT (Build 69): Mic → File failed only when the mic had opened iPadOS's audio at 44.1 kHz; when a file had played first, the mic opened at
+   48 kHz and File afterwards worked (Build 68 readout). So the Mic tap first plays 0.25 s of silence at 48 kHz (a plain media element, started inside
+   the tap as iPadOS requires), and the mic opens after that. Keep or remove once the iPad readout shows the mic's rate. */
+let silent48 = null;   // object URL of a 0.3 s silent mono 48 kHz WAV, built once
+function primeOutput48k(){
+  try {
+    if (!silent48){ const n = 14400, buf = new ArrayBuffer(44+n*2), v = new DataView(buf), w = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o+i, t.charCodeAt(i)); };
+      w(0, 'RIFF'); v.setUint32(4, 36+n*2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, 48000, true); v.setUint32(28, 96000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n*2, true);
+      silent48 = URL.createObjectURL(new Blob([buf], {type:'audio/wav'})); }
+    const a = new Audio(silent48), t0 = performance.now();
+    return a.play().then(() => new Promise(r => setTimeout(r, 250))).then(() => { a.pause(); diag('prime: silent 48 kHz played ('+Math.round(performance.now()-t0)+' ms)'); }, e => diag('prime FAILED: '+e.name));
+  } catch(e){ return Promise.resolve(); }
+}
 async function useMic(deviceId){
   ensureAudioCtx(); stopDisplayStream();
   if (micStream){ try { micStream.getTracks().forEach(t=>t.stop()); } catch(e){} micStream = null; }
   try {
-    const c = {audio:{channelCount:{ideal:16}, echoCancellation:false, noiseSuppression:false, autoGainControl:false}};
+    const c = {audio:{channelCount:{ideal:16}, sampleRate:{ideal:48000}, echoCancellation:false, noiseSuppression:false, autoGainControl:false}};   // 48 kHz: EXPERIMENT (Build 69), see primeOutput48k
     // With a single audio input there is nothing to choose, so ask for the default: on the iPad, asking for the device by id gave a mono capture
     // where the default gave stereo (João, Build 60). With several inputs the chosen one is still asked for by id.
     if (deviceId){ try { const ins = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput'); if (ins.length <= 1) deviceId = undefined; } catch(e){} }
@@ -1557,6 +1571,7 @@ async function useMic(deviceId){
       if (tr){ const st = tr.getSettings ? tr.getSettings() : {}; diag('mic settings: '+(st.channelCount || '?')+' ch, '+(st.sampleRate || '?')+' Hz');
         ['ended','mute','unmute'].forEach(n => tr.addEventListener(n, () => diag('mic track '+n))); } }
     connectSource(audioCtx.createMediaStreamSource(micStream)); ui.setSrc('mic');
+    if (audioCtx.state !== 'running' && audioCtx.state !== 'closed') resumeCtx('mic open');   // the engine may now be made outside the tap (after the prime); a capturing page may start audio
     const t = micStream.getAudioTracks()[0]; const ch = t && t.getSettings().channelCount;
     setAudioStatus('Mic / line-in connected'+(t&&t.label?' ('+t.label+(ch?' — '+ch+'ch':'')+')':'')+'.'); ui.fileRow.style.display = 'none';
     await populateMicDeviceSelect();
@@ -1863,10 +1878,13 @@ function buildUI(){
   const fin = el('input', {type:'file', accept:'audio/*,.wav,.wave,.mp3,.flac,.aif,.aiff,.m4a,.aac,.ogg,.oga,.opus,.weba,.wma', multiple:true}); fin.style.display = 'none'; b.appendChild(fin);   // the extensions as well: iPadOS's Files picker greyed out audio files with audio/* alone (same list as AUDIO_EXT)
   bMic.onclick = () => {
     detachMonitor();
+    const prime = primeOutput48k();   // EXPERIMENT (Build 69): started inside the tap, the mic opens after it
     const lab = lsGet('copperlightV1_micLabel', '');
-    if (lab && navigator.mediaDevices && navigator.mediaDevices.enumerateDevices){
-      navigator.mediaDevices.enumerateDevices().then(ds => { const m = ds.find(d => d.kind==='audioinput' && d.label===lab); useMic(m ? m.deviceId : undefined); }).catch(() => useMic());
-    } else useMic();
+    prime.then(() => {
+      if (lab && navigator.mediaDevices && navigator.mediaDevices.enumerateDevices){
+        navigator.mediaDevices.enumerateDevices().then(ds => { const m = ds.find(d => d.kind==='audioinput' && d.label===lab); useMic(m ? m.deviceId : undefined); }).catch(() => useMic());
+      } else useMic();
+    });
   };
   bSys.onclick = () => { detachMonitor(); useSystemAudio(); };
   // File starts (or resumes) the engine inside the tap: iPadOS doesn't count the picker closing as one, so an engine made there stayed paused and the file played silent
