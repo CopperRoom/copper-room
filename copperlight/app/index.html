@@ -2103,8 +2103,26 @@ function buildUI(){
 }
 
 /* ---------------------------------------------------------------- recording (ported from prototype) */
+// The record canvas is a WebGL2 canvas of its own: each frame the finished picture goes into its texture GPU to GPU and is drawn cover-fit, and the
+// browser hands a WebGL canvas to the encoder without reading it back to main memory. A 2D record canvas cost ~40 % of the frame rate at 4K
+// (Build 80, M4). 2D stays as the fallback when a second WebGL2 context is refused.
 const recordCanvas = document.createElement('canvas'); recordCanvas.width = 1920; recordCanvas.height = 1080;
-const recordCtx = recordCanvas.getContext('2d');
+const recGL = recordCanvas.getContext('webgl2', {antialias:false, alpha:false, depth:false, stencil:false});
+const recordCtx = recGL ? null : recordCanvas.getContext('2d');
+let recScaleLoc = null;
+if (recGL){
+  const sh = (type, src) => { const x = recGL.createShader(type); recGL.shaderSource(x, src); recGL.compileShader(x);
+    if (!recGL.getShaderParameter(x, recGL.COMPILE_STATUS)) console.error('[shader] record compile error:\n'+recGL.getShaderInfoLog(x)); return x; };
+  const p = recGL.createProgram(); recGL.attachShader(p, sh(recGL.VERTEX_SHADER, VERT));
+  recGL.attachShader(p, sh(recGL.FRAGMENT_SHADER, `#version 300 es
+precision highp float; in vec2 vUv; out vec4 o; uniform sampler2D uTex; uniform vec2 uScale;
+void main(){ vec2 uv = 0.5 + (vUv - 0.5)*uScale; o = vec4(texture(uTex, vec2(uv.x, 1.0 - uv.y)).rgb, 1.0); }`));   // canvas rows arrive top first
+  recGL.linkProgram(p); if (!recGL.getProgramParameter(p, recGL.LINK_STATUS)) console.error('[shader] record link error: '+recGL.getProgramInfoLog(p));
+  recGL.useProgram(p); recScaleLoc = recGL.getUniformLocation(p, 'uScale'); recGL.bindVertexArray(recGL.createVertexArray());
+  recGL.bindTexture(recGL.TEXTURE_2D, recGL.createTexture());
+  recGL.texParameteri(recGL.TEXTURE_2D, recGL.TEXTURE_MIN_FILTER, recGL.LINEAR); recGL.texParameteri(recGL.TEXTURE_2D, recGL.TEXTURE_MAG_FILTER, recGL.LINEAR);
+  recGL.texParameteri(recGL.TEXTURE_2D, recGL.TEXTURE_WRAP_S, recGL.CLAMP_TO_EDGE); recGL.texParameteri(recGL.TEXTURE_2D, recGL.TEXTURE_WRAP_T, recGL.CLAMP_TO_EDGE);
+}
 let mediaRecorder = null, recordedChunks = [], recordStartMs = 0, recordTimerId = null;
 function getRecordMimeCandidates(w){
   if (w > 1920) return ['video/mp4;codecs=avc1.640034,mp4a.40.2','video/mp4;codecs=avc1.640033,mp4a.40.2','video/mp4;codecs=avc1.4d0034,mp4a.40.2','video/mp4;codecs=avc1.4d0033,mp4a.40.2','video/mp4;codecs=avc1,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
@@ -2162,10 +2180,11 @@ function stopRecording(){
   clearInterval(recordTimerId); if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
   ui.recBtn.textContent = 'Record (R)'; ui.recBtn.classList.remove('active'); ui.setDot('rec', false);
 }
-function copyToRecordCanvas(){ // cover-fit, no letterbox — only runs while recording
-  const cw = recordCanvas.width, ch = recordCanvas.height, sw = canvas.width, sh = canvas.height;
-  const sc = Math.max(cw/sw, ch/sh), dw = sw*sc, dh = sh*sc;
-  recordCtx.drawImage(canvas, (cw-dw)/2, (ch-dh)/2, dw, dh);
+function copyToRecordCanvas(){ // cover-fit, no letterbox — only runs while recording, right after the final pass
+  const cw = recordCanvas.width, ch = recordCanvas.height, sw = canvas.width, sh = canvas.height, sc = Math.max(cw/sw, ch/sh);
+  if (!recGL){ const dw = sw*sc, dh = sh*sc; recordCtx.drawImage(canvas, (cw-dw)/2, (ch-dh)/2, dw, dh); return; }
+  recGL.viewport(0, 0, cw, ch); recGL.texImage2D(recGL.TEXTURE_2D, 0, recGL.RGBA, recGL.RGBA, recGL.UNSIGNED_BYTE, canvas);
+  recGL.uniform2f(recScaleLoc, cw/(sw*sc), ch/(sh*sc)); recGL.drawArrays(recGL.TRIANGLES, 0, 3);
 }
 
 /* ---------------------------------------------------------------- screenshot: PNG of the canvas as drawn, at drawing-buffer size; the panel, HUD and overlays are DOM, so never in it */
