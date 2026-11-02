@@ -2072,7 +2072,7 @@ function buildUI(){
   buildM4UI();
   // Output
   b = section('Output');
-  const ob = el('div', {className:'btns c2'}); const bFull = el('button', {textContent:'Fullscreen (F)'}); ui.fullBtn = bFull; ui.recBtn = el('button', {textContent:'Record (R)'}); ob.append(bFull, ui.recBtn); b.appendChild(ob);
+  const ob = el('div', {className:'btns c2'}); const bFull = el('button', {textContent:'Fullscreen (F)'}); ui.fullBtn = bFull; ui.recBtn = el('button', {textContent:'Record (R)'}); ui.shotBtn = el('button', {textContent:'Screenshot (G)'}); ui.shotBtn.style.gridColumn = '2'; ob.append(bFull, ui.recBtn, ui.shotBtn); b.appendChild(ob);   // Screenshot under Record
   const rr = el('div', {className:'row'}); rr.innerHTML = '<label><span>Render resolution</span></label>';
   const resSel = el('select'); [['1080p','1080p (smoothest)'],['1440p','1440p'],['native','Native']].forEach(([k,l]) => resSel.appendChild(new Option(l,k))); resSel.value = resSetting;
   resSel.onchange = () => { resSetting = resSel.value; lsSet('copperlightV1_renderRes', resSetting); resize(); }; rr.appendChild(resSel); b.appendChild(rr);
@@ -2082,6 +2082,7 @@ function buildUI(){
   ui.recStatus = el('div', {className:'status'}); b.appendChild(ui.recStatus);
   bFull.onclick = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(()=>{}); };
   ui.recBtn.onclick = () => { if (mediaRecorder && mediaRecorder.state === 'recording') stopRecording(); else startRecording(); };
+  ui.shotBtn.onclick = requestScreenshot;
   // panel order: connect audio, live-play layer (presets, macros), look building in render order, then setup/utility
   const ORDER = ['Audio','Presets','Macros','Modulation','Mode','Color','Stages','Frame','Lens','Master','MIDI','Output'];
   const titleOf = sec => sec.querySelector('.hd span').textContent;
@@ -2091,7 +2092,7 @@ function buildUI(){
   const foot = el('div', {className:'foot'});
   ui.fps = el('div', {className:'fps'}); foot.appendChild(ui.fps);
   const keys = el('ul', {className:'keys'});
-  [['H','Hide panel'],['F','Fullscreen'],['R','Record'],['T','Tap tempo'],['D','Dice look'],['U','Undo dice'],['B','A/B swap'],['X','Shuffle look'],['M','Collapse all'],['I','Info HUD'],['S','Stage bypass'],['Space','Play / pause'],['1–0','Preset keys'],['Dbl-click','Reset slider']].forEach(([k,d]) => { const li = el('li'); li.innerHTML = '<kbd>'+k+'</kbd><span>'+d+'</span>'; keys.appendChild(li); });
+  [['H','Hide panel'],['F','Fullscreen'],['R','Record'],['G','Screenshot'],['T','Tap tempo'],['D','Dice look'],['U','Undo dice'],['B','A/B swap'],['X','Shuffle look'],['M','Collapse all'],['I','Info HUD'],['S','Stage bypass'],['Space','Play / pause'],['1–0','Preset keys'],['Dbl-click','Reset slider']].forEach(([k,d]) => { const li = el('li'); li.innerHTML = '<kbd>'+k+'</kbd><span>'+d+'</span>'; keys.appendChild(li); });
   foot.appendChild(keys); panel.appendChild(foot);
 }
 
@@ -2107,9 +2108,9 @@ function pickRecordMimeType(w){ for (const t of getRecordMimeCandidates(w)) if (
 function nextRecordingFilename(ext, res){
   let n = parseInt(lsGet('copperlightV1_recordingFileNumber', '1'), 10); if (!Number.isFinite(n) || n < 1) n = 1;
   lsSet('copperlightV1_recordingFileNumber', String(n+1)); // per-app recording counter
-  const d = new Date(); const ds = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  return 'Copperlight-'+ds+'-'+n+'-'+res+'.'+ext;
+  return 'Copperlight-'+fileDate()+'-'+n+'-'+res+'.'+ext;
 }
+function fileDate(){ const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function startRecording(){
   if (!audioCtx || !analyser){ ui.recStatus.textContent = 'Connect an audio source before recording.'; return; }
   if (!recordDest){ recordDest = audioCtx.createMediaStreamDestination(); dryBus.connect(recordDest); }   // records the source as it arrives, before Input Gain
@@ -2132,7 +2133,7 @@ function startRecording(){
     setTimeout(() => URL.revokeObjectURL(a.href), 10000); ui.recStatus.textContent = 'Saved '+a.download+' ('+(blob.size/1048576).toFixed(1)+' MB).';
   };
   mediaRecorder.start(); recordStartMs = performance.now(); clearInterval(recordTimerId);
-  recordTimerId = setInterval(() => { ui.recStatus.textContent = 'Recording '+(is4k?'4K':'1080p')+' — '+fmtTime((performance.now()-recordStartMs)/1000)+(isMp4?' (mp4)':' (webm — no mp4 encoder)'); }, 250);
+  recordTimerId = setInterval(() => { ui.recStatus.textContent = 'Recording '+(is4k?'4K':'1080p')+' — '+fmtTime((performance.now()-recordStartMs)/1000)+(isMp4?' (mp4)':' (webm — no mp4 encoder)')+(performance.now() < shotMsgUntil ? ' · '+shotMsg : ''); }, 250);
   ui.recBtn.textContent = 'Stop (R)'; ui.recBtn.classList.add('active'); ui.setDot('rec', true);
 }
 function stopRecording(){
@@ -2143,6 +2144,32 @@ function copyToRecordCanvas(){ // cover-fit, no letterbox — only runs while re
   const cw = recordCanvas.width, ch = recordCanvas.height, sw = canvas.width, sh = canvas.height;
   const sc = Math.max(cw/sw, ch/sh), dw = sw*sc, dh = sh*sc;
   recordCtx.drawImage(canvas, (cw-dw)/2, (ch-dh)/2, dw, dh);
+}
+
+/* ---------------------------------------------------------------- screenshot: PNG of the canvas as drawn, at drawing-buffer size; the panel, HUD and overlays are DOM, so never in it */
+let shotPending = false, shotBusy = false, shotMsg = '', shotMsgUntil = 0;
+function requestScreenshot(){ if (!shotBusy) shotPending = true; }   // taken by frame() right after the final pass (no preserveDrawingBuffer)
+function setShotStatus(msg){   // while recording, the recording timer shows it beside its own line for 5 s
+  shotMsg = msg; shotMsgUntil = performance.now() + 5000;
+  if (!(mediaRecorder && mediaRecorder.state === 'recording')) ui.recStatus.textContent = msg;
+}
+function takeScreenshot(){
+  shotPending = false; shotBusy = true; const w = canvas.width, h = canvas.height;
+  canvas.toBlob(blob => { shotBusy = false; if (blob) saveScreenshot(blob, w, h); else setShotStatus('Screenshot failed.'); }, 'image/png');
+}
+async function saveScreenshot(blob, w, h){
+  let n = parseInt(lsGet('copperlightV1_screenshotFileNumber', '1'), 10); if (!Number.isFinite(n) || n < 1) n = 1;
+  const name = 'Copperlight-'+fileDate()+'-'+n+'-'+w+'x'+h+'.png';
+  const saved = () => { lsSet('copperlightV1_screenshotFileNumber', String(n+1)); setShotStatus('Saved '+name+' ('+(blob.size/1048576).toFixed(1)+' MB).'); };   // own counter, separate from recordings
+  if (navigator.standalone === true && navigator.canShare){   // iPad Home Screen launch: the share sheet (Save Image → Photos, Save to Files)
+    const file = new File([blob], name, {type:'image/png'});
+    if (navigator.canShare({files:[file]})){
+      try { await navigator.share({files:[file]}); saved(); return; }
+      catch(e){ if (e.name === 'AbortError'){ setShotStatus('Screenshot not saved (share cancelled).'); return; } }   // any other refusal: download instead
+    }
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000); saved();
 }
 
 
@@ -2739,6 +2766,7 @@ function frame(){
   gl.uniform1f(U(finalProg,'uTime'), time); drawFullscreen();
 
   if (mediaRecorder && mediaRecorder.state === 'recording') copyToRecordCanvas();
+  if (shotPending) takeScreenshot();
 
   fpsFrames++; if (now-fpsLast > 1000){ hudFps = Math.round(fpsFrames*1000/(now-fpsLast)); if (hudOn) hudUpdate(); if (ui.fps) ui.fps.textContent = 'Render '+renderW+'×'+renderH+' · '+Math.round(fpsFrames*1000/(now-fpsLast))+' fps'; fpsFrames = 0; fpsLast = now; }
 }
@@ -2815,6 +2843,7 @@ addEventListener('keydown', e => {
   if (k === 'h') togglePanel();
   else if (k === 'f') ui.fullBtn.click();
   else if (k === 'r') ui.recBtn.click();
+  else if (k === 'g'){ if (!e.repeat) requestScreenshot(); }
   else if (k === 'x') shuffleLook();
   else if (k === 'i') toggleHud();
   else if (k === 's') setStagesBypass(!stagesBypass);
