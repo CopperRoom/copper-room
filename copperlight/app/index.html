@@ -18,9 +18,11 @@
   }
   *{box-sizing:border-box;}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;overflow:hidden;overscroll-behavior:none;}   /* none: the page itself never rubber-bands or swipe-navigates (iPad Home Screen touch offset, Build 73) */
-  canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:manipulation;}
+  canvas#gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:manipulation;}
+  /* canvas, panel and HUD are absolute, not fixed: the page never scrolls, so they sit where fixed ones would, but on some iPad Home Screen launches iPadOS
+     shifts the document by the status-bar height and WebKit then hit-tests fixed elements off by that much (Build 73 tests); absolute ones move with their touches. */
   html.cursor-hidden, html.cursor-hidden *{cursor:none!important;}
-  #panel{position:fixed;top:0;left:0;bottom:0;width:300px;background:rgba(17,17,22,0.94);border-right:1px solid var(--line);overflow-y:auto;overscroll-behavior:contain;padding:10px 12px 0;z-index:5;display:flex;flex-direction:column;}
+  #panel{position:absolute;top:0;left:0;bottom:0;width:300px;background:rgba(17,17,22,0.94);border-right:1px solid var(--line);overflow-y:auto;overscroll-behavior:contain;padding:10px 12px 0;z-index:5;display:flex;flex-direction:column;}
   #panel.hidden{display:none;}
   #panel h1{font-size:13px;letter-spacing:.12em;text-transform:uppercase;margin:2px 0 8px;color:var(--accent);}
   .sec{--sc:var(--accent);border-left:3px solid var(--sc);padding:0 0 4px 9px;margin-top:12px;border-radius:2px 0 0 2px;}
@@ -263,7 +265,7 @@ body.s8 .status-row{display:flex;gap:16px;width:100%;margin-top:14px;font-size:9
 body.s8 .status-row i{display:inline-block;width:5px;height:5px;border-radius:50%;background:rgba(232,228,220,.22);margin-right:6px;vertical-align:1px;}
 body.s8 .status-row i.on{background:#b47830;}
 body.s8 .head .status{width:100%;margin:10px 0 0;}
-body.s8 #hud{display:block;position:fixed;left:24px;top:calc(22px + env(safe-area-inset-top));z-index:20;color:#e8e4dc;opacity:0;transition:opacity .15s ease,left .15s ease;pointer-events:none;font-family:Inter,system-ui,sans-serif;text-shadow:0 0 12px rgba(0,0,0,.6);}
+body.s8 #hud{display:block;position:absolute;left:24px;top:calc(22px + env(safe-area-inset-top));z-index:20;color:#e8e4dc;opacity:0;transition:opacity .15s ease,left .15s ease;pointer-events:none;font-family:Inter,system-ui,sans-serif;text-shadow:0 0 12px rgba(0,0,0,.6);}
 body.s8.hudOn #hud{opacity:1;}
 #hud .h1{font-size:15px;font-weight:300;letter-spacing:.02em;}
 #hud .h2{margin-top:6px;font-size:10px;font-weight:300;letter-spacing:2.5px;text-transform:uppercase;opacity:.6;font-variant-numeric:tabular-nums;}
