@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Copperlight v1.0 — offline audio visualizer</title>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -17,7 +17,7 @@
     --accent:#b47830; --accent-dim:#4a3018;
   }
   *{box-sizing:border-box;}
-  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;overflow:hidden;}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:12px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;overflow:hidden;overscroll-behavior:none;}   /* none: the page itself never rubber-bands or swipe-navigates (iPad Home Screen touch offset, Build 73) */
   canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:manipulation;}
   html.cursor-hidden, html.cursor-hidden *{cursor:none!important;}
   #panel{position:fixed;top:0;left:0;bottom:0;width:300px;background:rgba(17,17,22,0.94);border-right:1px solid var(--line);overflow-y:auto;overscroll-behavior:contain;padding:10px 12px 0;z-index:5;display:flex;flex-direction:column;}
