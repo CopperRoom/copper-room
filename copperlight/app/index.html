@@ -1340,6 +1340,7 @@ let clickHP, clickLP, clickAnalyser, clickData, trebleHP, trebleAnalyser, treble
 let freqData, timeData, stereoSrc = true;
 function ensureAudioCtx(){
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  else if (audioCtx.state !== 'running' && audioCtx.state !== 'closed') audioCtx.resume().catch(()=>{});   // paused by the OS (iPad: app hidden); pressing a source button brings it back
   if (!analyser){
     analyser = audioCtx.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0;
     freqData = new Uint8Array(analyser.frequencyBinCount); timeData = new Uint8Array(analyser.frequencyBinCount);
@@ -1396,7 +1397,19 @@ async function syncWakeLock(){
   wakeBusy = false;
   if (wakeWanted !== want) syncWakeLock();   // the source came or went while the request was pending
 }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncWakeLock(); });
+/* Coming back to the app (iPad: after it was hidden) the OS has paused the audio engine and may have ended the mic track; nothing brought either back,
+   so the source stayed silent until a relaunch. Resume the engine, and reopen the mic (same device) if its track ended. Also tried on the next touch or
+   click, since the OS may only allow resuming after one. Cheap no-op while everything is running (always, in a desktop browser). */
+let micReviving = false;
+function reviveAudio(){
+  if (!audioCtx || document.visibilityState !== 'visible') return;
+  if (audioCtx.state !== 'running' && audioCtx.state !== 'closed') audioCtx.resume().catch(()=>{});
+  const t = micStream && micStream.getAudioTracks()[0];
+  if (t && t.readyState === 'ended' && !micReviving){ micReviving = true; useMic(ui.micSel.value || undefined).finally(() => { micReviving = false; }); }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible'){ syncWakeLock(); reviveAudio(); } });
+addEventListener('pageshow', reviveAudio);
+addEventListener('pointerdown', reviveAudio, true);
 // What the browser actually delivered for a captured track: "Raw: echo off, AGC off, NS off, 2 ch, 48 kHz", plus a plain warning for any processing left on.
 function rawAudioReport(track){
   const st = (track && track.getSettings) ? track.getSettings() : {};
@@ -1740,7 +1753,7 @@ function buildUI(){
   ui.dbgOn = false; ui.dbgBtn.onclick = () => { ui.dbgOn = !ui.dbgOn; ui.dbgBtn.classList.toggle('active', ui.dbgOn); ui.dbgCv.style.display = ui.dbgOn ? 'block' : 'none'; };
   ui.micRow = el('div', {className:'row'}); ui.micRow.style.display = 'none';
   ui.micRow.innerHTML = '<label><span>Input device</span></label>'; ui.micSel = el('select'); ui.micRow.appendChild(ui.micSel); b.appendChild(ui.micRow);
-  const fin = el('input', {type:'file', accept:'audio/*', multiple:true}); fin.style.display = 'none'; b.appendChild(fin);
+  const fin = el('input', {type:'file', accept:'audio/*,.wav,.wave,.mp3,.flac,.aif,.aiff,.m4a,.aac,.ogg,.oga,.opus,.weba,.wma', multiple:true});   // the extensions as well: iPadOS's Files picker greyed out audio files with audio/* alone (same list as AUDIO_EXT) fin.style.display = 'none'; b.appendChild(fin);
   bMic.onclick = () => {
     detachMonitor();
     const lab = lsGet('copperlightV1_micLabel', '');
