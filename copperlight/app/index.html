@@ -1340,6 +1340,7 @@ let clickHP, clickLP, clickAnalyser, clickData, trebleHP, trebleAnalyser, treble
 let freqData, timeData, stereoSrc = true;
 /* TEMPORARY iPad diagnostics (Build 58, remove once the iPad audio and touch-offset bugs are understood). Shown only in a Home Screen launch
    (standalone), so a Safari tab and every desktop browser look and behave as before. Live state at the top, the last events below (seconds since launch). */
+const TEST_BUILD = 60;   // TEMPORARY build number beside v1.0 in the panel (and in the readout), so João can tell which build the iPad loaded; bump every build, remove when asked
 const DIAG = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
 const diagEvents = [], diagT0 = performance.now();
 function diag(msg){ if (!DIAG) return; diagEvents.push(((performance.now()-diagT0)/1000).toFixed(1)+'  '+msg); if (diagEvents.length > 22) diagEvents.shift(); }
@@ -1369,7 +1370,7 @@ if (DIAG){
   }, 250);
   ['visibilitychange','pageshow','pagehide','focus','blur','resize','orientationchange'].forEach(n => addEventListener(n, () => diag(n+(n === 'visibilitychange' ? ' '+document.visibilityState : '')), true));
   addEventListener('pointerdown', e => { const h = document.elementFromPoint(e.clientX, e.clientY); diag('touch y '+Math.round(e.clientY)+' screenY '+Math.round(e.screenY)+' on '+(h ? (h.tagName+' '+(h.textContent || h.id || '').trim().slice(0, 18)) : '-')); }, true);
-  diag('launch (standalone)');
+  diag('launch (standalone), build '+TEST_BUILD);
 }
 function ensureAudioCtx(){
   if (!audioCtx){ const c = audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1432,12 +1433,15 @@ async function syncWakeLock(){
   wakeBusy = false;
   if (wakeWanted !== want) syncWakeLock();   // the source came or went while the request was pending
 }
-/* Coming back to the app (iPad: after it was hidden) the OS has paused the audio engine and may have ended the mic track. Resuming the engine and
-   reopening the mic was not enough (Build 55: "Mic connected", meter flat, touches and the Mic button did nothing); only a relaunch, i.e. a new
-   AudioContext, brought the sound back. So once the OS has interrupted the context (audioInterrupted, set in ensureAudioCtx) and Mic is the source,
-   the whole analysis graph is rebuilt in a new context and the mic reopened on the same device. Otherwise the context is only resumed. Also tried on the
-   next touch or click, since the OS may only allow it after one. A desktop browser never interrupts the context, so there this is a no-op. */
-let micReviving = false, audioInterrupted = false;
+/* Coming back to the app (iPad: after it was hidden). Measured on João's iPad (Build 58 readout): the context's clock stops when the app is hidden and
+   never restarts, while the context still reports 'running' and fires no statechange; the mic track only mutes and unmutes. Resuming does nothing then
+   (the state is already 'running'), and only a relaunch, i.e. a new AudioContext, brought the sound back. So: a watchdog rebuilds the engine when the
+   clock stops while the app is visible, and so does an OS interruption that is reported (audioInterrupted) or an ended mic track; recoverEngine then
+   reconnects whatever source was live (a live mic track as it is, no new permission prompt). Otherwise the context is only resumed, which is also tried
+   on the next touch or click, since the OS may only allow it after one. A desktop browser's context never stops, so there all of this is a no-op. */
+let micReviving = false, audioInterrupted = false, pendingPlay = null;
+let lastRecover = -1e9;
+const holdPaused = new WeakSet();   // a file element recreated paused by recoverEngine: a blocked start must not become a pending one
 function rebuildAudioCtx(){   // every node lives in ensureAudioCtx and reads its settings from S / P, so a rebuild keeps Input Gain, Kick Band etc.
   const old = audioCtx;
   if (sourceNode){ try { sourceNode.disconnect(); } catch(e){} sourceNode = null; }
@@ -1445,16 +1449,42 @@ function rebuildAudioCtx(){   // every node lives in ensureAudioCtx and reads it
   if (old) old.close().catch(()=>{});
   ensureAudioCtx();
 }
-function reviveAudio(){
+function recoverEngine(why){   // new context, then the source that was live: mic (as is, or reopened if its track ended), System, or File (same track, position, play state)
+  if (micReviving || performance.now()-lastRecover < 5000) return;   // at most one every 5 s, so an engine that won't run can't loop
+  lastRecover = performance.now();
+  const mt = micStream && micStream.getAudioTracks()[0], file = fileLive(), sys = displayStream;
+  const pos = file ? mediaEl.currentTime : 0, playing = file && !mediaEl.paused;
+  diag('recover engine ('+why+'): '+(mt ? 'mic '+mt.readyState : file ? 'file at '+pos.toFixed(1)+(playing ? ' playing' : ' paused') : sys ? 'system' : 'no source'));
+  rebuildAudioCtx();
+  if (mt && mt.readyState === 'live') connectSource(audioCtx.createMediaStreamSource(micStream));
+  else if (mt){ micReviving = true; useMic(ui.micSel.value || undefined).finally(() => { micReviving = false; }); }
+  else if (sys) connectSource(audioCtx.createMediaStreamSource(sys));
+  else if (file){
+    useFile(audioList[audioIdx]); const me = mediaEl;
+    me.addEventListener('loadedmetadata', () => { me.currentTime = pos; }, {once:true});
+    if (!playing){ holdPaused.add(me); me.pause(); }
+  }
+}
+function reviveAudio(e){
+  // a file whose start iPadOS blocked: this touch starts it (not a touch on Play itself, which starts it on its own and would pause it again)
+  if (e && (e.type === 'pointerup' || e.type === 'pointerdown') && pendingPlay && pendingPlay === mediaEl && mediaEl.paused && !(ui.playBtn && ui.playBtn.contains(e.target))){
+    const me = mediaEl; pendingPlay = null; diag('touch: starting the file');
+    me.play().then(() => { diag('file play() ok (touch)'); setAudioStatus('Local file connected.'); }, err => { diag('file play() FAILED (touch): '+err.name); if (me === mediaEl) pendingPlay = me; });
+  }
   if (!audioCtx || document.visibilityState !== 'visible' || micReviving) return;
   const t = micStream && micStream.getAudioTracks()[0];
-  if (t && (audioInterrupted || t.readyState === 'ended')){
-    diag('revive: rebuild engine + reopen mic (interrupted '+audioInterrupted+', track '+t.readyState+')');
-    micReviving = true; rebuildAudioCtx();
-    useMic(ui.micSel.value || undefined).finally(() => { micReviving = false; });
-    return;
-  }
+  if (audioInterrupted || (t && t.readyState === 'ended')){ recoverEngine(audioInterrupted ? 'interrupted' : 'mic track ended'); return; }
   if (audioCtx.state !== 'running' && audioCtx.state !== 'closed') resumeCtx('revive');
+}
+// Watchdog: a context that says 'running' but whose clock hasn't moved for two checks in a row (while visible, with a source) is the iPad's frozen engine.
+{ let last = -1, stalls = 0;
+  setInterval(() => {
+    if (!audioCtx || !sourceNode || document.visibilityState !== 'visible' || audioCtx.state !== 'running'){ last = -1; stalls = 0; return; }
+    const ct = audioCtx.currentTime;
+    if (ct === last && ++stalls >= 2){ last = -1; stalls = 0; recoverEngine('clock stopped at '+ct.toFixed(1)); return; }
+    if (ct !== last) stalls = 0;
+    last = ct;
+  }, 1000);
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible'){ syncWakeLock(); reviveAudio(); } });
 addEventListener('pageshow', reviveAudio);
@@ -1582,7 +1612,10 @@ function useFile(file){
   { const me = mediaEl;   // listeners belong to their own element: an old one (paused on track change or Clear) must not touch the current transport
     me.addEventListener('timeupdate', () => { if (me !== mediaEl) return; if (!ui.seeking){ ui.seek.value = me.duration ? me.currentTime/me.duration*1000 : 0; } ui.tCur.textContent = fmtTime(me.currentTime); ui.tDur.textContent = fmtTime(me.duration||0); });
     me.addEventListener('play', () => { if (me === mediaEl) ui.playBtn.textContent = 'Pause'; }); me.addEventListener('pause', () => { if (me === mediaEl) ui.playBtn.textContent = 'Play'; }); }
-  mediaEl.play().then(() => diag('file play() ok'), e => diag('file play() FAILED: '+e.name)); setAudioStatus('Local file connected.'); ui.fileRow.style.display = 'block'; if (!audioList.includes(file)){ audioList = [file]; audioIdx = 0; } updateTransportUI();
+  { const me = mediaEl; me.addEventListener('playing', () => { if (pendingPlay === me){ pendingPlay = null; setAudioStatus('Local file connected.'); } }); me.play().then(() => diag('file play() ok'), e => { diag('file play() FAILED: '+e.name);
+      // iPadOS only lets a file start on a tap, and the picker closing isn't one: the next touch starts it (reviveAudio)
+      if (e.name === 'NotAllowedError' && me === mediaEl && !holdPaused.has(me)){ pendingPlay = me; ui.playBtn.textContent = 'Play'; setAudioStatus('Tap anywhere to start the file.'); } }); }
+  setAudioStatus('Local file connected.'); ui.fileRow.style.display = 'block'; if (!audioList.includes(file)){ audioList = [file]; audioIdx = 0; } updateTransportUI();
 }
 function detachMonitor(){ if (audioCtx && dryBus){ try { dryBus.disconnect(audioCtx.destination); } catch(e){} } }
 
@@ -1734,7 +1767,7 @@ applyModeFlash();
 
 function buildUI(){
   { // nameplate: wordmark, maker line, status dots (audio source / MIDI / recording), description line (also the drop-note line)
-    const head = el('div', {className:'head'}, '<h1>Copperlight <small>v1.0</small></h1><span class="brand-r">by Copper Room</span><div class="status-row"><span><i></i>Audio</span><span><i></i>MIDI</span><span><i></i>Rec</span></div>');
+    const head = el('div', {className:'head'}, '<h1>Copperlight <small>v1.0 · build '+TEST_BUILD+'</small></h1><span class="brand-r">by Copper Room</span><div class="status-row"><span><i></i>Audio</span><span><i></i>MIDI</span><span><i></i>Rec</span></div>');
     ui.descEl = el('div', {className:'status'}); head.appendChild(ui.descEl); panel.appendChild(head);
     const dots = head.querySelectorAll('.status-row i'); ui.dots = {audio:dots[0], midi:dots[1], rec:dots[2]};
     if (!HAS_MIDI) dots[1].parentNode.style.display = 'none';
