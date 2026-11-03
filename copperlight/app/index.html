@@ -2150,7 +2150,6 @@ async function deliverFile(blob, what, counterKey, tail, say){
 function fileDate(){ const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function startRecording(){
   if (!audioCtx || !analyser){ ui.recStatus.textContent = 'Connect an audio source before recording.'; return; }
-  if (/webcodecs/.test(location.hash)){ wcStart(/direct/.test(location.hash)); return; }   // Build 82 test recorder, see wcStart
   if (!recordDest){   // records the source as it arrives, before Input Gain
     recordDest = audioCtx.createMediaStreamDestination();
     const up = audioCtx.createGain(), split = audioCtx.createChannelSplitter(2), merge = audioCtx.createChannelMerger(2), r = audioCtx.createGain(), l = audioCtx.createGain();
@@ -2196,98 +2195,6 @@ function copyToRecordCanvas(){ // cover-fit, no letterbox — only runs while re
   if (recordCanvas === recordCanvas2D){ const dw = sw*sc, dh = sh*sc; recordCtx.drawImage(canvas, (cw-dw)/2, (ch-dh)/2, dw, dh); return; }
   recGL.viewport(0, 0, cw, ch); recGL.texImage2D(recGL.TEXTURE_2D, 0, recGL.RGBA, recGL.RGBA, recGL.UNSIGNED_BYTE, canvas);
   recGL.uniform2f(recScaleLoc, cw/(sw*sc), ch/(sh*sc)); recGL.drawArrays(recGL.TRIANGLES, 0, 3);
-}
-
-/* ---------------------------------------------------------------- Build 82 test recorder (app URL ending #webcodecs or #webcodecs-direct; video only)
-   WebCodecs H.264 instead of MediaRecorder: the app hands each drawn frame to the hardware encoder with its own timestamp and writes the MP4 itself.
-   #webcodecs encodes the record canvas (1080p / 4K, as Record does); #webcodecs-direct encodes the drawn canvas at its own size, skipping the copy.
-   The status line shows the measured costs per frame, to compare with Record on the iPad. */
-let wcRec = null, wcStarting = false;
-async function wcStart(direct){
-  if (wcStarting) return;
-  if (typeof VideoEncoder !== 'function' || typeof VideoFrame !== 'function'){ ui.recStatus.textContent = 'Test recorder: this browser has no WebCodecs video encoder.'; return; }
-  const is4k = ui.recRes.value === '4k';
-  if (!direct){ recordCanvas = recGLFast() ? recordCanvasGL : recordCanvas2D; recordCanvas.width = is4k ? 3840 : 1920; recordCanvas.height = is4k ? 2160 : 1080; }
-  const w = direct ? canvas.width & ~1 : recordCanvas.width, h = direct ? canvas.height & ~1 : recordCanvas.height;
-  wcStarting = true; let cfg = null;
-  for (const codec of ['avc1.64002A','avc1.640033','avc1.640034','avc1.4D0034','avc1.42E034']){   // High 4.2 covers 1080p60; 5.1/5.2 for bigger frames
-    const c = {codec, width:w, height:h, bitrate: w*h > 1920*1088 ? 120000000 : 64000000, bitrateMode:'variable', framerate:60, latencyMode:'quality', avc:{format:'avc'}};
-    try { if ((await VideoEncoder.isConfigSupported(c)).supported){ cfg = c; break; } } catch(e){}
-  }
-  wcStarting = false;
-  if (!cfg){ ui.recStatus.textContent = 'Test recorder: no H.264 encoder for '+w+'×'+h+'.'; return; }
-  const r = {direct, w, h, codec:cfg.codec, start:performance.now(), lastKey:-1e9, n:0, dropped:0, tCopy:0, tFrame:0, tEnc:0, err:'', chunks:[], desc:null};
-  r.enc = new VideoEncoder({
-    output: (ch, meta) => { if (meta && meta.decoderConfig && meta.decoderConfig.description) r.desc = meta.decoderConfig.description;
-      const d = new Uint8Array(ch.byteLength); ch.copyTo(d); r.chunks.push({d, ts:ch.timestamp, key:ch.type === 'key'}); },
-    error: e => { r.err = e.message || String(e); } });
-  try { r.enc.configure(cfg); } catch(e){ ui.recStatus.textContent = 'Test recorder: '+e.message; return; }
-  wcRec = r; mediaRecorder = {state:'recording', stop(){ this.state = 'inactive'; wcStop(r); }};   // stands in for MediaRecorder so Record / R stop it
-  ui.recRes.disabled = true; recordStartMs = performance.now(); clearInterval(recordTimerId);
-  recordTimerId = setInterval(() => { ui.recStatus.textContent = 'Test '+(direct ? 'direct ' : '')+w+'×'+h+' — '+fmtTime((performance.now()-recordStartMs)/1000)+' · '+wcStats(r)+(r.err ? ' · error: '+r.err : ''); }, 250);
-  ui.recBtn.textContent = 'Stop (R)'; ui.recBtn.classList.add('active'); ui.setDot('rec', true);
-}
-function wcStats(r){ const k = Math.max(1, r.n), s = (performance.now() - r.start)/1000;
-  return 'encoded '+(r.n/s).toFixed(0)+' fps, dropped '+r.dropped+', copy '+(r.tCopy/k).toFixed(1)+' ms, frame '+(r.tFrame/k).toFixed(1)+' ms, encode '+(r.tEnc/k).toFixed(1)+' ms'; }
-function wcFrame(){   // in the render loop right after the final pass, like copyToRecordCanvas
-  const r = wcRec, t0 = performance.now();
-  if (r.enc.state !== 'configured') return;
-  if (r.enc.encodeQueueSize > 2){ r.dropped++; return; }   // encoder behind: skip this frame rather than stall the visuals
-  if (!r.direct) copyToRecordCanvas();
-  const t1 = performance.now(); let f;
-  try { f = new VideoFrame(r.direct ? canvas : recordCanvas, {timestamp: Math.round((t0 - r.start)*1000), visibleRect:{x:0, y:0, width:r.w, height:r.h}}); }
-  catch(e){ r.err = e.message; return; }
-  const t2 = performance.now(), key = t0 - r.lastKey >= 2000; if (key) r.lastKey = t0;   // keyframe every 2 s
-  r.enc.encode(f, {keyFrame:key}); f.close();
-  r.n++; r.tCopy += t1 - t0; r.tFrame += t2 - t1; r.tEnc += performance.now() - t2;
-}
-async function wcStop(r){
-  wcRec = null; clearInterval(recordTimerId); const stats = wcStats(r);
-  try { await r.enc.flush(); } catch(e){ r.err = r.err || e.message; }
-  try { r.enc.close(); } catch(e){}
-  ui.recRes.disabled = false;
-  if (!r.chunks.length || !r.desc){ ui.recStatus.textContent = 'Test recorder: nothing encoded'+(r.err ? ' ('+r.err+')' : '')+'. '+stats; return; }
-  const d = r.desc, avcC = d instanceof ArrayBuffer ? new Uint8Array(d) : new Uint8Array(d.buffer, d.byteOffset, d.byteLength);
-  deliverFile(mp4Mux(r.chunks, avcC, r.w, r.h), 'Recording', 'copperlightV1_recordingFileNumber', (r.direct ? 'direct-' : 'test-')+r.w+'x'+r.h+'.mp4',
-    msg => { ui.recStatus.textContent = msg+' '+stats+(r.err ? ' · error: '+r.err : ''); });
-}
-// Video-only MP4: ftyp, mdat with every frame, moov with one H.264 track (all frames in one chunk). Timescale 90 kHz; ctts only if frames were reordered.
-function mp4Mux(samples, avcC, w, h){
-  const cat = parts => { let n = 0; for (const p of parts) n += p.length; const o = new Uint8Array(n); let i = 0; for (const p of parts){ o.set(p, i); i += p.length; } return o; };
-  const u32a = a => { const o = new Uint8Array(4*a.length), v = new DataView(o.buffer); for (let i = 0; i < a.length; i++) v.setUint32(4*i, a[i] >>> 0); return o; };
-  const u32 = (...a) => u32a(a), u64 = x => u32(Math.floor(x / 4294967296), x % 4294967296);
-  const u16 = (...a) => { const o = new Uint8Array(2*a.length), v = new DataView(o.buffer); a.forEach((x, i) => v.setUint16(2*i, x)); return o; };
-  const str = s => Uint8Array.from(s, c => c.charCodeAt(0)), zero = n => new Uint8Array(n);
-  const box = (type, ...parts) => { const body = cat(parts); return cat([u32(8 + body.length), str(type), body]); };
-  const full = (type, flags, ...parts) => box(type, u32(flags), ...parts);
-  const N = samples.length, pts = samples.map(s => Math.round(s.ts * 0.09));
-  const dts = pts.slice().sort((a, b) => a - b); let shift = 0; for (let i = 0; i < N; i++) shift = Math.max(shift, dts[i] - pts[i]);
-  const dur = []; for (let i = 0; i < N - 1; i++) dur.push(dts[i+1] - dts[i]); dur.push(N > 1 ? Math.round((dts[N-1] - dts[0])/(N - 1)) : 1500);
-  const total = dts[N-1] - dts[0] + dur[N-1], ms = Math.round(total / 90);
-  const stts = []; for (let i = 0; i < N; ){ let j = i; while (j < N && dur[j] === dur[i]) j++; stts.push(j - i, dur[i]); i = j; }
-  const reordered = pts.some((p, i) => p !== dts[i]), ctts = []; if (reordered) for (let i = 0; i < N; i++) ctts.push(1, pts[i] - dts[i] + shift);
-  const keys = []; samples.forEach((s, i) => { if (s.key) keys.push(i + 1); });
-  const matrix = u32(0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x40000000);
-  const ftyp = box('ftyp', str('isom'), u32(0x200), str('isomiso2avc1mp41'));
-  let size = 0; for (const s of samples) size += s.d.length;
-  const mdatHead = cat([u32(1), str('mdat'), u64(16 + size)]);   // 64-bit size: long recordings pass 4 GB
-  const stbl = box('stbl',
-    full('stsd', 0, u32(1), box('avc1', zero(6), u16(1), zero(16), u16(w, h), u32(0x480000, 0x480000, 0), u16(1), zero(32), u16(0x18, 0xffff), box('avcC', avcC))),
-    full('stts', 0, u32(stts.length / 2), u32a(stts)),
-    ...(reordered ? [full('ctts', 0, u32(N), u32a(ctts))] : []),
-    ...(keys.length < N ? [full('stss', 0, u32(keys.length), u32a(keys))] : []),
-    full('stsz', 0, u32(0, N), u32a(samples.map(s => s.d.length))),
-    full('stsc', 0, u32(1, 1, N, 1)),
-    full('co64', 0, u32(1), u64(ftyp.length + mdatHead.length)));
-  const moov = box('moov',
-    full('mvhd', 0, u32(0, 0, 1000, ms, 0x10000), u16(0x100), zero(10), matrix, zero(24), u32(2)),
-    box('trak',
-      full('tkhd', 3, u32(0, 0, 1, 0, ms), zero(8), u16(0, 0, 0, 0), matrix, u32(w * 65536, h * 65536)),
-      box('mdia',
-        full('mdhd', 0, u32(0, 0, 90000, total), u16(0x55c4, 0)),   // language "und"
-        full('hdlr', 0, u32(0), str('vide'), zero(12), str('Copperlight\0')),
-        box('minf', full('vmhd', 1, zero(8)), box('dinf', full('dref', 0, u32(1), full('url ', 1))), stbl))));
-  return new Blob([ftyp, mdatHead, ...samples.map(s => s.d), moov], {type:'video/mp4'});
 }
 
 /* ---------------------------------------------------------------- screenshot: PNG of the canvas as drawn, at drawing-buffer size; the panel, HUD and overlays are DOM, so never in it */
@@ -2899,8 +2806,7 @@ function frame(){
   gl.uniform1f(U(finalProg,'uBright'), E.bright); gl.uniform1f(U(finalProg,'uVig'), E.vignette); gl.uniform1f(U(finalProg,'uHit'), hitEnv); gl.uniform1f(U(finalProg,'uFlashK'), E.flash);
   gl.uniform1f(U(finalProg,'uTime'), time); drawFullscreen();
 
-  if (wcRec) wcFrame();
-  else if (mediaRecorder && mediaRecorder.state === 'recording') copyToRecordCanvas();
+  if (mediaRecorder && mediaRecorder.state === 'recording') copyToRecordCanvas();
   if (shotPending) takeScreenshot();
 
   fpsFrames++; if (now-fpsLast > 1000){ hudFps = Math.round(fpsFrames*1000/(now-fpsLast)); if (hudOn) hudUpdate(); if (ui.fps) ui.fps.textContent = 'Render '+renderW+'×'+renderH+' · '+Math.round(fpsFrames*1000/(now-fpsLast))+' fps'; fpsFrames = 0; fpsLast = now; }
