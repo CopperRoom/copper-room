@@ -306,7 +306,7 @@ body.s8.hudOn #hud{opacity:1;}
    ===================================================================================== */
 
 const $ = id => document.getElementById(id);
-const BUILD = 95;   // shown under "by Copper Room" so João can tell which build is loaded; bump with every Build NN commit
+const BUILD = 96;   // shown under "by Copper Room" so João can tell which build is loaded; bump with every Build NN commit
 const clamp = (x,a,b) => Math.max(a, Math.min(b, x));
 const LS_KEY = 'copperlightV1_state';
 function lsGet(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : v; } catch(e){ return d; } }
@@ -2491,6 +2491,11 @@ function hashF(n){ const x = Math.sin(n*127.1)*43758.5453; return x - Math.floor
 function drawFullscreen(){ gl.drawArrays(gl.TRIANGLES, 0, 3); }
 function bindTex(unit, tex){ gl.activeTexture(gl.TEXTURE0+unit); gl.bindTexture(gl.TEXTURE_2D, tex); }
 
+// Build 96 (iPad bottom band diagnosis, temporary): what iPadOS gives the page. Shown after the fps in the panel footer: page (window inner size),
+// visible (visual viewport), screen, the safe-area insets top / bottom, and the panel's top on screen.
+const insetProbe = document.createElement('div'); insetProbe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);'; document.body.appendChild(insetProbe);
+function pageDiag(){ const cs = getComputedStyle(insetProbe), vv = window.visualViewport, pr = document.getElementById('panel');
+  return ' · page '+innerWidth+'×'+innerHeight+(vv ? ', visible '+Math.round(vv.width)+'×'+Math.round(vv.height)+' at '+Math.round(vv.offsetTop) : '')+', screen '+screen.width+'×'+screen.height+', inset top '+parseFloat(cs.paddingTop)+' bottom '+parseFloat(cs.paddingBottom)+(pr ? ', panel top '+Math.round(pr.getBoundingClientRect().top) : '')+', scroll '+Math.round(scrollY); }
 function frame(){
   requestAnimationFrame(frame);
   const now = performance.now();
@@ -2868,7 +2873,7 @@ function frame(){
   recProbeFrame();
   if (shotPending) takeScreenshot();
 
-  fpsFrames++; if (now-fpsLast > 1000){ hudFps = Math.round(fpsFrames*1000/(now-fpsLast)); if (hudOn) hudUpdate(); if (ui.fps) ui.fps.textContent = 'Render '+renderW+'×'+renderH+' · '+Math.round(fpsFrames*1000/(now-fpsLast))+' fps'; fpsFrames = 0; fpsLast = now; }
+  fpsFrames++; if (now-fpsLast > 1000){ hudFps = Math.round(fpsFrames*1000/(now-fpsLast)); if (hudOn) hudUpdate(); if (ui.fps) ui.fps.textContent = 'Render '+renderW+'×'+renderH+' · '+Math.round(fpsFrames*1000/(now-fpsLast))+' fps'+pageDiag(); fpsFrames = 0; fpsLast = now; }
 }
 
 /* ---------------------------------------------------------------- shuffle + keys + cursor */
