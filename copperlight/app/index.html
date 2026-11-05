@@ -306,7 +306,7 @@ body.s8.hudOn #hud{opacity:1;}
    ===================================================================================== */
 
 const $ = id => document.getElementById(id);
-const BUILD = 88;   // shown under "by Copper Room" so João can tell which build is loaded; bump with every Build NN commit
+const BUILD = 89;   // shown under "by Copper Room" so João can tell which build is loaded; bump with every Build NN commit
 const clamp = (x,a,b) => Math.max(a, Math.min(b, x));
 const LS_KEY = 'copperlightV1_state';
 function lsGet(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : v; } catch(e){ return d; } }
@@ -2198,6 +2198,44 @@ function spsSetSRGB(nal){
   const o = []; for (let i = 0, z = 0; i < r.length; i++){ if (z >= 2 && r[i] <= 3){ o.push(3); z = 0; } o.push(r[i]); z = r[i] === 0 ? z + 1 : 0; }   // escape again
   return o.length === nal.length ? Uint8Array.from(o) : null;
 }
+// Builds 89+ (iPad freeze diagnosis, temporary): how far a saved MP4's video really runs. Reads the fragment tables (moof/traf/trun) and returns
+// {frames, moving, total}: moving = when the last frame starts (the picture stops changing there), total = the video track's length, in seconds.
+// null for files without fragments or anything unexpected.
+async function mp4VideoSpan(blob){
+  try {
+    const rd = async (a, n) => new DataView(await blob.slice(a, a + n).arrayBuffer());
+    const type = (v, o) => String.fromCharCode(v.getUint8(o), v.getUint8(o+1), v.getUint8(o+2), v.getUint8(o+3));
+    const kids = (v, s, e, f) => { for (let p = s; p + 8 <= e; ){ const n = v.getUint32(p); if (n < 8) return; f(type(v, p+4), p + 8, Math.min(p + n, e)); p += n; } };
+    const scale = {}, kind = {}; let frames = 0, moving = 0, total = 0, video = 0, sawFrag = false;
+    for (let pos = 0; pos + 8 <= blob.size; ){
+      const h = await rd(pos, 16); let n = h.getUint32(0); const t = type(h, 4);
+      if (n === 1) n = h.getUint32(8) * 4294967296 + h.getUint32(12); else if (n === 0) n = blob.size - pos;
+      if (n < 8) return null;
+      if (t === 'moov' || t === 'moof'){
+        const v = await rd(pos, n); let tid = 0, dflt = 0, base = 0;
+        const walk = (s, e) => kids(v, s, e, (bt, b0, b1) => {
+          if (['trak','mdia','minf','traf'].includes(bt)) walk(b0, b1);
+          else if (bt === 'tkhd') tid = v.getUint32(b0 + (v.getUint8(b0) ? 20 : 12));
+          else if (bt === 'mdhd') scale[tid] = v.getUint32(b0 + (v.getUint8(b0) ? 20 : 12));
+          else if (bt === 'hdlr') kind[tid] = type(v, b0 + 8);
+          else if (bt === 'tfhd'){ const fl = v.getUint32(b0) & 0xffffff; tid = v.getUint32(b0 + 4); let q = b0 + 8; if (fl & 1) q += 8; if (fl & 2) q += 4; dflt = (fl & 8) ? v.getUint32(q) : 0; }
+          else if (bt === 'tfdt') base = v.getUint8(b0) ? v.getUint32(b0 + 4) * 4294967296 + v.getUint32(b0 + 8) : v.getUint32(b0 + 4);
+          else if (bt === 'trun' && kind[tid] === 'vide'){
+            sawFrag = true; video = tid; const fl = v.getUint32(b0) & 0xffffff, cnt = v.getUint32(b0 + 4); let q = b0 + 8, at = base;
+            if (fl & 1) q += 4; if (fl & 4) q += 4;
+            for (let i = 0; i < cnt; i++){ const d = (fl & 0x100) ? v.getUint32(q) : dflt;
+              q += ((fl & 0x100) ? 4 : 0) + ((fl & 0x200) ? 4 : 0) + ((fl & 0x400) ? 4 : 0) + ((fl & 0x800) ? 4 : 0);
+              frames++; moving = at; at += d; }
+            base = at; total = at;
+          } });
+        walk(8, n);
+      }
+      pos += n;
+    }
+    if (!sawFrag || !scale[video]) return null;
+    return {frames, moving: moving / scale[video], total: total / scale[video]};
+  } catch(e){ return null; }
+}
 function fileDate(){ const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function startRecording(){
   if (!audioCtx || !analyser){ ui.recStatus.textContent = 'Connect an audio source before recording.'; return; }
@@ -2219,8 +2257,11 @@ function startRecording(){
   recPushTrack = push ? videoTrack : null;
   try { videoTrack.contentHint = 'motion'; } catch(e){}
   videoTrack.onmute = () => { ui.recStatus.textContent = 'Warning: video track stalled — recording may freeze from here.'; };
-  const stream = new MediaStream([videoTrack, ...recordDest.stream.getAudioTracks()]); recordedChunks = [];
-  try { mediaRecorder = new MediaRecorder(stream, {mimeType, videoBitsPerSecond: is4k ? 120000000 : 64000000, audioBitsPerSecond:192000}); }   // H.264 so files play everywhere (Windows too); at half these rates detail smeared on kicks and transitions
+  // Builds 89+ (iPad freeze diagnosis, temporary): an app address ending #rec-noaudio records video only, #rec-rate leaves the bitrate to the browser,
+  // #rec-slice has the recorder hand over its data every second. The variant is named in the status line.
+  const rv = ((location.hash.match(/rec-(noaudio|rate|slice)/) || [])[1]) || '';
+  const stream = new MediaStream(rv === 'noaudio' ? [videoTrack] : [videoTrack, ...recordDest.stream.getAudioTracks()]); recordedChunks = [];
+  try { mediaRecorder = new MediaRecorder(stream, rv === 'rate' ? {mimeType} : {mimeType, videoBitsPerSecond: is4k ? 120000000 : 64000000, audioBitsPerSecond:192000}); }   // H.264 so files play everywhere (Windows too); at half these rates detail smeared on kicks and transitions
   catch(e){ ui.recStatus.textContent = 'Could not start recording: '+e.message; videoTrack.stop(); return; }
   ui.recRes.disabled = true; const isMp4 = mimeType.startsWith('video/mp4');
   mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) recordedChunks.push(e.data); };
@@ -2228,10 +2269,13 @@ function startRecording(){
   mediaRecorder.onstop = () => {
     videoTrack.stop(); recPushTrack = null; ui.recRes.disabled = false;
     const raw = new Blob(recordedChunks, {type:mimeType.split(';')[0]});
-    (isMp4 ? labelSRGB(raw) : Promise.resolve(raw)).then(blob => deliverFile(blob, 'Recording', 'copperlightV1_recordingFileNumber', (is4k?'4K':'1080p')+'.'+(isMp4?'mp4':'webm'), msg => { ui.recStatus.textContent = msg; }));
+    const span = isMp4 ? mp4VideoSpan(raw) : Promise.resolve(null);   // read alongside the save, so the share sheet isn't delayed
+    const say = msg => { ui.recStatus.textContent = msg; span.then(sp => { if (sp && msg.startsWith('Saved')) ui.recStatus.textContent = msg+' Video moves to '+sp.moving.toFixed(1)+' s of '+sp.total.toFixed(1)+' s ('+sp.frames+' frames).'+(rv ? ' Test: '+rv+'.' : ''); }); };
+    (isMp4 ? labelSRGB(raw) : Promise.resolve(raw)).then(blob => deliverFile(blob, 'Recording', 'copperlightV1_recordingFileNumber', (is4k?'4K':'1080p')+'.'+(isMp4?'mp4':'webm'), say));
   };
-  mediaRecorder.start(); recordStartMs = performance.now(); clearInterval(recordTimerId);
-  recordTimerId = setInterval(() => { ui.recStatus.textContent = 'Recording '+(is4k?'4K':'1080p')+' — '+fmtTime((performance.now()-recordStartMs)/1000)+(isMp4?' (mp4)':' (webm — no mp4 encoder)')+(performance.now() < shotMsgUntil ? ' · '+shotMsg : ''); }, 250);
+  if (rv === 'slice') mediaRecorder.start(1000); else mediaRecorder.start();
+  recordStartMs = performance.now(); clearInterval(recordTimerId);
+  recordTimerId = setInterval(() => { ui.recStatus.textContent = 'Recording '+(is4k?'4K':'1080p')+' — '+fmtTime((performance.now()-recordStartMs)/1000)+(isMp4?' (mp4)':' (webm — no mp4 encoder)')+(rv ? ' · test: '+rv : '')+(performance.now() < shotMsgUntil ? ' · '+shotMsg : ''); }, 250);
   ui.recBtn.textContent = 'Stop (R)'; ui.recBtn.classList.add('active'); ui.setDot('rec', true);
 }
 function stopRecording(){
