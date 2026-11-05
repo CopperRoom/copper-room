@@ -306,7 +306,7 @@ body.s8.hudOn #hud{opacity:1;}
    ===================================================================================== */
 
 const $ = id => document.getElementById(id);
-const BUILD = 91;   // shown under "by Copper Room" so João can tell which build is loaded; bump with every Build NN commit
+const BUILD = 92;   // shown under "by Copper Room" so João can tell which build is loaded; bump with every Build NN commit
 const clamp = (x,a,b) => Math.max(a, Math.min(b, x));
 const LS_KEY = 'copperlightV1_state';
 function lsGet(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : v; } catch(e){ return d; } }
@@ -2139,11 +2139,6 @@ void main(){ vec2 uv = 0.5 + (vUv - 0.5)*uScale; o = vec4(cr(vec2(uv.x, 1.0 - uv
   recGL.texParameteri(recGL.TEXTURE_2D, recGL.TEXTURE_WRAP_S, recGL.CLAMP_TO_EDGE); recGL.texParameteri(recGL.TEXTURE_2D, recGL.TEXTURE_WRAP_T, recGL.CLAMP_TO_EDGE);
 }
 let mediaRecorder = null, recordedChunks = [], recordStartMs = 0, recordTimerId = null;
-// Build 91 (iPad recording fps diagnosis, temporary): frames while recording, slow frames (over 40 ms) and how many of those come within 150 ms
-// after the recorder handed over data. Shown in the status line during and after the recording.
-let recDiag = null;
-function recDiagFrame(){ const d = recDiag; if (!d) return; const t = performance.now(); if (d.last && t - d.last > 40){ d.slow++; if (t - d.data < 150) d.after++; } d.last = t; d.n++; }
-function recDiagText(){ const d = recDiag; if (!d) return ''; const s = (performance.now() - d.start) / 1000; return (d.n / Math.max(s, 0.001)).toFixed(0)+' fps, '+d.slow+' slow frames ('+d.after+' right after a data hand-over)'+(d.rv ? ', test: '+d.rv : ''); }
 function getRecordMimeCandidates(w){
   if (w > 1920) return ['video/mp4;codecs=avc1.640034,mp4a.40.2','video/mp4;codecs=avc1.640033,mp4a.40.2','video/mp4;codecs=avc1.4d0034,mp4a.40.2','video/mp4;codecs=avc1.4d0033,mp4a.40.2','video/mp4;codecs=avc1,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
   return ['video/mp4;codecs=avc1.640029,mp4a.40.2','video/mp4;codecs=avc1.4d0029,mp4a.40.2','video/mp4;codecs=avc1,mp4a.40.2','video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
@@ -2223,22 +2218,17 @@ function startRecording(){
   try { mediaRecorder = new MediaRecorder(stream, {mimeType, videoBitsPerSecond: is4k ? 120000000 : 64000000, audioBitsPerSecond:192000}); }   // H.264 so files play everywhere (Windows too); at half these rates detail smeared on kicks and transitions
   catch(e){ ui.recStatus.textContent = 'Could not start recording: '+e.message; videoTrack.stop(); return; }
   ui.recRes.disabled = true; const isMp4 = mimeType.startsWith('video/mp4');
-  mediaRecorder.ondataavailable = e => { if (recDiag) recDiag.data = performance.now(); if (e.data && e.data.size) recordedChunks.push(e.data); };
+  mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) recordedChunks.push(e.data); };
   mediaRecorder.onerror = e => { ui.recStatus.textContent = 'Recording error: '+((e.error && e.error.message)||'check console'); };
   mediaRecorder.onstop = () => {
-    const diag = recDiagText(); recDiag = null;
     videoTrack.stop(); ui.recRes.disabled = false;
     const raw = new Blob(recordedChunks, {type:mimeType.split(';')[0]});
-    (isMp4 ? labelSRGB(raw) : Promise.resolve(raw)).then(blob => deliverFile(blob, 'Recording', 'copperlightV1_recordingFileNumber', (is4k?'4K':'1080p')+'.'+(isMp4?'mp4':'webm'), msg => { ui.recStatus.textContent = msg+(msg.startsWith('Saved') && diag ? ' Recording ran at '+diag+'.' : ''); }));
+    (isMp4 ? labelSRGB(raw) : Promise.resolve(raw)).then(blob => deliverFile(blob, 'Recording', 'copperlightV1_recordingFileNumber', (is4k?'4K':'1080p')+'.'+(isMp4?'mp4':'webm'), msg => { ui.recStatus.textContent = msg; }));
   };
   // Data every second: holding sound and picture until stop, the iPad's recorder dropped the video after ~10.5 s (sound ran on, last frame held).
   // Measured on the iPad, Build 89: 10.5 / 10.0 s of 21 s without; full length with 1 s pieces (and with video only).
-  // Build 91 test addresses (temporary): #rec-slice5 hands over data every 5 s, #rec-whole only at the end (freezes after ~10 s on the iPad; for fps only).
-  const rv = ((location.hash.match(/rec-(slice5|whole)/) || [])[1]) || '';
-  if (rv === 'whole') mediaRecorder.start(); else mediaRecorder.start(rv === 'slice5' ? 5000 : 1000);
-  recDiag = {n:0, slow:0, after:0, last:0, data:-1e9, start:performance.now(), rv};
-  recordStartMs = performance.now(); clearInterval(recordTimerId);
-  recordTimerId = setInterval(() => { ui.recStatus.textContent = 'Recording '+(is4k?'4K':'1080p')+' — '+fmtTime((performance.now()-recordStartMs)/1000)+(isMp4?' (mp4)':' (webm — no mp4 encoder)')+' · '+recDiagText()+(performance.now() < shotMsgUntil ? ' · '+shotMsg : ''); }, 250);
+  mediaRecorder.start(1000); recordStartMs = performance.now(); clearInterval(recordTimerId);
+  recordTimerId = setInterval(() => { ui.recStatus.textContent = 'Recording '+(is4k?'4K':'1080p')+' — '+fmtTime((performance.now()-recordStartMs)/1000)+(isMp4?' (mp4)':' (webm — no mp4 encoder)')+(performance.now() < shotMsgUntil ? ' · '+shotMsg : ''); }, 250);
   ui.recBtn.textContent = 'Stop (R)'; ui.recBtn.classList.add('active'); ui.setDot('rec', true);
 }
 function stopRecording(){
@@ -2868,7 +2858,7 @@ function frame(){
   gl.uniform1f(U(finalProg,'uBright'), E.bright); gl.uniform1f(U(finalProg,'uVig'), E.vignette); gl.uniform1f(U(finalProg,'uHit'), hitEnv); gl.uniform1f(U(finalProg,'uFlashK'), E.flash);
   gl.uniform1f(U(finalProg,'uTime'), time); drawFullscreen();
 
-  if (mediaRecorder && mediaRecorder.state === 'recording'){ copyToRecordCanvas(); recDiagFrame(); }
+  if (mediaRecorder && mediaRecorder.state === 'recording') copyToRecordCanvas();
   if (shotPending) takeScreenshot();
 
   fpsFrames++; if (now-fpsLast > 1000){ hudFps = Math.round(fpsFrames*1000/(now-fpsLast)); if (hudOn) hudUpdate(); if (ui.fps) ui.fps.textContent = 'Render '+renderW+'×'+renderH+' · '+Math.round(fpsFrames*1000/(now-fpsLast))+' fps'; fpsFrames = 0; fpsLast = now; }
