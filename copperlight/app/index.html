@@ -265,6 +265,7 @@ body.s8 .head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:s
 body.s8 #panel h1{font-size:11px;letter-spacing:4px;margin:0;font-weight:400;}
 body.s8 #panel h1 small{font-size:9px;letter-spacing:2px;color:var(--muted);margin-left:6px;}
 body.s8 .brand-r{display:block;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+body.s8 .brand-r .build{display:block;margin-top:4px;font-size:8px;letter-spacing:1.5px;opacity:.55;}
 body.s8 .status-row{display:flex;gap:16px;width:100%;margin-top:14px;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
 body.s8 .status-row i{display:inline-block;width:5px;height:5px;border-radius:50%;background:rgba(232,228,220,.22);margin-right:6px;vertical-align:1px;}
 body.s8 .status-row i.on{background:#b47830;}
@@ -305,6 +306,7 @@ body.s8.hudOn #hud{opacity:1;}
    ===================================================================================== */
 
 const $ = id => document.getElementById(id);
+const BUILD = 86;   // shown under "by Copper Room" so João can tell which build is loaded; bump with every Build NN commit
 const clamp = (x,a,b) => Math.max(a, Math.min(b, x));
 const LS_KEY = 'copperlightV1_state';
 function lsGet(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : v; } catch(e){ return d; } }
@@ -1770,7 +1772,7 @@ applyModeFlash();
 
 function buildUI(){
   { // nameplate: wordmark, maker line, status dots (audio source / MIDI / recording), description line (also the drop-note line)
-    const head = el('div', {className:'head'}, '<h1>Copperlight <small>v1.0</small></h1><span class="brand-r">by Copper Room</span><div class="status-row"><span><i></i>Audio</span><span><i></i>MIDI</span><span><i></i>Rec</span></div>');
+    const head = el('div', {className:'head'}, '<h1>Copperlight <small>v1.0</small></h1><span class="brand-r">by Copper Room<span class="build">Build '+BUILD+'</span></span><div class="status-row"><span><i></i>Audio</span><span><i></i>MIDI</span><span><i></i>Rec</span></div>');
     ui.descEl = el('div', {className:'status'}); head.appendChild(ui.descEl); panel.appendChild(head);
     const dots = head.querySelectorAll('.status-row i'); ui.dots = {audio:dots[0], midi:dots[1], rec:dots[2]};
     if (!HAS_MIDI) dots[1].parentNode.style.display = 'none';

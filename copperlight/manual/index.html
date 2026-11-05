@@ -609,6 +609,7 @@ footer{margin-top:72px;padding-top:20px;border-top:1px solid var(--line);color:v
 <li>The recording size cannot be changed while recording.</li>
 <li>The picture is scaled to fill the recording frame without black bars, so if your window is not 16:9 the edges are cropped.</li>
 <li>The panel, the Info HUD and other on-screen interface are never recorded.</li>
+<li>Very fine texture doesn't fully survive recording. Video files are compressed as they are recorded, and the compression smooths out detail the size of single pixels, such as the grain of <strong>Static / Snow</strong> and the rows of <strong>Scanlines</strong>. With those stages on, a recording can look softer and slightly flatter than the live picture. Everything else records as you see it. For a frame with every detail intact, take a screenshot (see <strong>Screenshots</strong> below).</li>
 <li>Recording adds load. Test it at your performance resolution before you rely on it, and keep the Copperlight window visible, because browsers slow down hidden windows and the recording can stall.</li>
 <li>Recording the audio from a Mic input records exactly what the mic hears; for a clean mix, use a line input or File. If a Mic or System source arrives with sound on the left side only (the iPad's microphone does), the recording puts it on both sides.</li>
 </ul>
