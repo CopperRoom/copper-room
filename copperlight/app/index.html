@@ -306,7 +306,7 @@ body.s8.hudOn #hud{opacity:1;}
    ===================================================================================== */
 
 const $ = id => document.getElementById(id);
-const BUILD = 93;   // shown under "by Copper Room" so João can tell which build is loaded; bump with every Build NN commit
+const BUILD = 94;   // shown under "by Copper Room" so João can tell which build is loaded; bump with every Build NN commit
 const clamp = (x,a,b) => Math.max(a, Math.min(b, x));
 const LS_KEY = 'copperlightV1_state';
 function lsGet(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : v; } catch(e){ return d; } }
@@ -2105,14 +2105,15 @@ function buildUI(){
 }
 
 /* ---------------------------------------------------------------- recording (ported from prototype) */
-// Two record canvases; the first recording picks one by timing the copy (recGLFast). WebGL2: each frame the finished picture goes into its texture
+// Two record canvases; one is picked by timing the copy once per page load (recProbeFrame / recGLFast). WebGL2: each frame the finished picture goes into its texture
 // and is drawn cover-fit, and Chromium hands a WebGL canvas to the encoder without reading it back to main memory (a 2D record canvas cost ~40 %
 // of the frame rate at 4K on the M4, Build 80). But where that copy itself goes through main memory (WebKit: ~12 ms a frame, iPad 30 → 15 fps,
 // Build 81) the 2D canvas is faster. 2D is also the fallback when a second WebGL2 context is refused.
 const recordCanvasGL = document.createElement('canvas'), recordCanvas2D = document.createElement('canvas');
 const recGL = recordCanvasGL.getContext('webgl2', {antialias:false, alpha:false, depth:false, stencil:false});
 const recordCtx = recordCanvas2D.getContext('2d');
-let recordCanvas = recordCanvas2D, recUseGL = null;   // null until the first recording measures it
+let recordCanvas = recordCanvas2D, recUseGL = null;   // null until recProbeFrame has measured (shortly after load)
+let recCopyMs = null;   // the measured copy time (recProbeFrame); Build 94 shows it with the chosen path while recording (temporary)
 let recScaleLoc = null;
 if (recGL){
   const sh = (type, src) => { const x = recGL.createShader(type); recGL.shaderSource(x, src); recGL.compileShader(x);
@@ -2139,9 +2140,6 @@ void main(){ vec2 uv = 0.5 + (vUv - 0.5)*uScale; o = vec4(cr(vec2(uv.x, 1.0 - uv
   recGL.texParameteri(recGL.TEXTURE_2D, recGL.TEXTURE_WRAP_S, recGL.CLAMP_TO_EDGE); recGL.texParameteri(recGL.TEXTURE_2D, recGL.TEXTURE_WRAP_T, recGL.CLAMP_TO_EDGE);
 }
 let mediaRecorder = null, recordedChunks = [], recordStartMs = 0, recordTimerId = null;
-// Build 93 (temporary test): on the iPad each recording settles into ~30 or ~20 fps and stays there. App addresses ending #rec-sync-a start the
-// recorder at the start of the next frame, #rec-sync-b right after the next frame's copy, to see whether a fixed start point picks the fast rhythm.
-let recStartAt = '';
 function getRecordMimeCandidates(w){
   if (w > 1920) return ['video/mp4;codecs=avc1.640034,mp4a.40.2','video/mp4;codecs=avc1.640033,mp4a.40.2','video/mp4;codecs=avc1.4d0034,mp4a.40.2','video/mp4;codecs=avc1.4d0033,mp4a.40.2','video/mp4;codecs=avc1,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
   return ['video/mp4;codecs=avc1.640029,mp4a.40.2','video/mp4;codecs=avc1.4d0029,mp4a.40.2','video/mp4;codecs=avc1,mp4a.40.2','video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
@@ -2230,24 +2228,27 @@ function startRecording(){
   };
   // Data every second: holding sound and picture until stop, the iPad's recorder dropped the video after ~10.5 s (sound ran on, last frame held).
   // Measured on the iPad, Build 89: 10.5 / 10.0 s of 21 s without; full length with 1 s pieces (and with video only).
-  const sync = ((location.hash.match(/rec-sync-(a|b)/) || [])[1]) || '';
-  if (sync) recStartAt = sync; else mediaRecorder.start(1000);
-  recordStartMs = performance.now(); clearInterval(recordTimerId);
-  recordTimerId = setInterval(() => { ui.recStatus.textContent = 'Recording '+(is4k?'4K':'1080p')+' — '+fmtTime((performance.now()-recordStartMs)/1000)+(isMp4?' (mp4)':' (webm — no mp4 encoder)')+(sync ? ' · test: sync-'+sync : '')+(performance.now() < shotMsgUntil ? ' · '+shotMsg : ''); }, 250);
+  mediaRecorder.start(1000); recordStartMs = performance.now(); clearInterval(recordTimerId);
+  recordTimerId = setInterval(() => { ui.recStatus.textContent = 'Recording '+(is4k?'4K':'1080p')+' — '+fmtTime((performance.now()-recordStartMs)/1000)+(isMp4?' (mp4)':' (webm — no mp4 encoder)')+' · path '+(recordCanvas === recordCanvasGL ? 'WebGL' : '2D')+(recCopyMs !== null ? ', copy test '+recCopyMs.toFixed(1)+' ms' : ', copy test pending')+(performance.now() < shotMsgUntil ? ' · '+shotMsg : ''); }, 250);
   ui.recBtn.textContent = 'Stop (R)'; ui.recBtn.classList.add('active'); ui.setDot('rec', true);
 }
 function stopRecording(){
-  clearInterval(recordTimerId); if (recStartAt){ recStartAt = ''; mediaRecorder.start(1000); }   // stopped before the timed start: start so the stop below ends it cleanly
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  clearInterval(recordTimerId); if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
   ui.recBtn.textContent = 'Record (R)'; ui.recBtn.classList.remove('active'); ui.setDot('rec', false);
 }
-function recGLFast(){   // time the WebGL copy once: median of 3 after a warm-up; under 2 ms means GPU to GPU (Chromium ~0.1, WebKit ~12)
-  if (recUseGL !== null) return recUseGL;
-  if (!recGL) return (recUseGL = false);
-  const t = [];
-  for (let i = 0; i < 4; i++){ const t0 = performance.now(); recGL.texImage2D(recGL.TEXTURE_2D, 0, recGL.RGBA, recGL.RGBA, recGL.UNSIGNED_BYTE, canvas); if (i) t.push(performance.now() - t0); }
-  t.sort((a, b) => a - b); return (recUseGL = t[1] < 2);
+// Which record path: the WebGL copy is timed once per page load, in the render loop right after the final pass (one upload per frame, frames 30-34,
+// median of the last 4). Under 2 ms means GPU to GPU (Chromium 0.0-0.1 ms, desktop WebKit 3-12 ms). Build 81 timed 4 uploads in a row at the
+// Record press: desktop WebKit once reported 1.0 ms there and chose WebGL (the slow path in WebKit). Suspected cause of the iPad recording at ~20 fps
+// on some page loads and ~30 on others (Build 94 checks it).
+// Until the measurement is in, recordings use the 2D path.
+let recProbeN = 0; const recProbeT = [];
+function recProbeFrame(){
+  if (recUseGL !== null || ++recProbeN < 30) return;
+  if (!recGL){ recUseGL = false; return; }
+  const t0 = performance.now(); recGL.texImage2D(recGL.TEXTURE_2D, 0, recGL.RGBA, recGL.RGBA, recGL.UNSIGNED_BYTE, canvas); recProbeT.push(performance.now() - t0);
+  if (recProbeT.length === 5){ const t = recProbeT.slice(1).sort((a, b) => a - b); recCopyMs = (t[1] + t[2]) / 2; recUseGL = recCopyMs < 2; }
 }
+function recGLFast(){ return recUseGL === true; }
 function copyToRecordCanvas(){ // cover-fit, no letterbox — only runs while recording, right after the final pass
   const cw = recordCanvas.width, ch = recordCanvas.height, sw = canvas.width, sh = canvas.height, sc = Math.max(cw/sw, ch/sh);
   if (recordCanvas === recordCanvas2D){ const dw = sw*sc, dh = sh*sc; recordCtx.drawImage(canvas, (cw-dw)/2, (ch-dh)/2, dw, dh); return; }
@@ -2494,7 +2495,6 @@ function bindTex(unit, tex){ gl.activeTexture(gl.TEXTURE0+unit); gl.bindTexture(
 function frame(){
   requestAnimationFrame(frame);
   const now = performance.now();
-  if (recStartAt === 'a'){ recStartAt = ''; mediaRecorder.start(1000); }
   const dt = Math.min(0.1, Math.max(0, (now-lastFrameTime)/1000)); lastFrameTime = now;
   const dtScale = Math.min(4, dt*60) || 1;
 
@@ -2865,8 +2865,8 @@ function frame(){
   gl.uniform1f(U(finalProg,'uBright'), E.bright); gl.uniform1f(U(finalProg,'uVig'), E.vignette); gl.uniform1f(U(finalProg,'uHit'), hitEnv); gl.uniform1f(U(finalProg,'uFlashK'), E.flash);
   gl.uniform1f(U(finalProg,'uTime'), time); drawFullscreen();
 
-  if (recStartAt === 'b'){ copyToRecordCanvas(); recStartAt = ''; mediaRecorder.start(1000); }
-  else if (mediaRecorder && mediaRecorder.state === 'recording') copyToRecordCanvas();
+  if (mediaRecorder && mediaRecorder.state === 'recording') copyToRecordCanvas();
+  recProbeFrame();
   if (shotPending) takeScreenshot();
 
   fpsFrames++; if (now-fpsLast > 1000){ hudFps = Math.round(fpsFrames*1000/(now-fpsLast)); if (hudOn) hudUpdate(); if (ui.fps) ui.fps.textContent = 'Render '+renderW+'×'+renderH+' · '+Math.round(fpsFrames*1000/(now-fpsLast))+' fps'; fpsFrames = 0; fpsLast = now; }
