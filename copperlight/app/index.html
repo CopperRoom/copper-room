@@ -2118,7 +2118,18 @@ if (recGL){
   const p = recGL.createProgram(); recGL.attachShader(p, sh(recGL.VERTEX_SHADER, VERT));
   recGL.attachShader(p, sh(recGL.FRAGMENT_SHADER, `#version 300 es
 precision highp float; in vec2 vUv; out vec4 o; uniform sampler2D uTex; uniform vec2 uScale;
-void main(){ vec2 uv = 0.5 + (vUv - 0.5)*uScale; o = vec4(texture(uTex, vec2(uv.x, 1.0 - uv.y)).rgb, 1.0); }`));   // canvas rows arrive top first
+// Catmull-Rom (bicubic) in 9 bilinear taps. Plain bilinear blurred pixel-fine detail when the picture is scaled into the recording frame
+// (3840x1600 into 4K: Static / Snow kept 47 % of its detail, Scanlines 67 %; bicubic 71 % and 88 %).
+vec3 cr(vec2 uv){
+  vec2 ts = vec2(textureSize(uTex, 0)), sp = uv*ts, t1 = floor(sp - 0.5) + 0.5, f = sp - t1;
+  vec2 w0 = f*(-0.5 + f*(1.0 - 0.5*f)), w1 = 1.0 + f*f*(-2.5 + 1.5*f), w2 = f*(0.5 + f*(2.0 - 1.5*f)), w3 = f*f*(-0.5 + 0.5*f), w12 = w1 + w2;
+  vec2 t0 = (t1 - 1.0)/ts, t3 = (t1 + 2.0)/ts, tm = (t1 + w2/w12)/ts;
+  vec3 r = texture(uTex, vec2(t0.x, t0.y)).rgb*w0.x*w0.y + texture(uTex, vec2(tm.x, t0.y)).rgb*w12.x*w0.y + texture(uTex, vec2(t3.x, t0.y)).rgb*w3.x*w0.y
+         + texture(uTex, vec2(t0.x, tm.y)).rgb*w0.x*w12.y + texture(uTex, vec2(tm.x, tm.y)).rgb*w12.x*w12.y + texture(uTex, vec2(t3.x, tm.y)).rgb*w3.x*w12.y
+         + texture(uTex, vec2(t0.x, t3.y)).rgb*w0.x*w3.y + texture(uTex, vec2(tm.x, t3.y)).rgb*w12.x*w3.y + texture(uTex, vec2(t3.x, t3.y)).rgb*w3.x*w3.y;
+  return clamp(r, 0.0, 1.0);   // the kernel overshoots slightly at hard edges
+}
+void main(){ vec2 uv = 0.5 + (vUv - 0.5)*uScale; o = vec4(cr(vec2(uv.x, 1.0 - uv.y)), 1.0); }`));   // canvas rows arrive top first
   recGL.linkProgram(p); if (!recGL.getProgramParameter(p, recGL.LINK_STATUS)) console.error('[shader] record link error: '+recGL.getProgramInfoLog(p));
   recGL.useProgram(p); recScaleLoc = recGL.getUniformLocation(p, 'uScale'); recGL.bindVertexArray(recGL.createVertexArray());
   recGL.bindTexture(recGL.TEXTURE_2D, recGL.createTexture());
@@ -2147,6 +2158,43 @@ async function deliverFile(blob, what, counterKey, tail, say){
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 10000); saved();
 }
+// The encoder labels a recording's tone curve as video (BT.709) though the picture is sRGB; colour-managed players (QuickTime, Finder preview)
+// then lift the darks (measured +7 levels). Rewrite that label to sRGB (13) where it says BT.709 (1): the MP4 colr box and the H.264 SPS in avcC.
+// Header only (first MB, where the moov sits); the picture data is untouched. Anything unexpected leaves the file as it was.
+async function labelSRGB(blob){
+  try {
+    const n = Math.min(blob.size, 1048576), h = new Uint8Array(await blob.slice(0, n).arrayBuffer());
+    let moov = -1, end = 0;
+    for (let p = 0; p + 8 <= n; ){ const size = ((h[p]<<24)|(h[p+1]<<16)|(h[p+2]<<8)|h[p+3]) >>> 0, type = String.fromCharCode(h[p+4], h[p+5], h[p+6], h[p+7]);
+      if (type === 'moov'){ moov = p; end = p + size; break; } if (size < 8) return blob; p += size; }
+    if (moov < 0 || end > n) return blob;
+    const find = s => { for (let i = moov; i + 4 <= end; i++) if (h[i] === s.charCodeAt(0) && h[i+1] === s.charCodeAt(1) && h[i+2] === s.charCodeAt(2) && h[i+3] === s.charCodeAt(3)) return i; return -1; };
+    let changed = false;
+    const c = find('colr');
+    if (c > 0 && String.fromCharCode(h[c+4], h[c+5], h[c+6], h[c+7]) === 'nclx' && h[c+10] === 0 && h[c+11] === 1){ h[c+11] = 13; changed = true; }
+    const a = find('avcC');
+    if (a > 0 && (h[a+9] & 31) >= 1){ const len = (h[a+10]<<8) | h[a+11], sps = spsSetSRGB(h.subarray(a+12, a+12+len)); if (sps){ h.set(sps, a+12); changed = true; } }
+    return changed ? new Blob([h, blob.slice(n)], {type:blob.type}) : blob;
+  } catch(e){ return blob; }
+}
+// H.264 SPS: transfer_characteristics 1 -> 13 in the VUI. Returns the new NAL bytes, or null when it is not 1, not present, or the escaped length would change.
+function spsSetSRGB(nal){
+  const r = []; for (let i = 0, z = 0; i < nal.length; i++){ if (z >= 2 && nal[i] === 3){ z = 0; continue; } r.push(nal[i]); z = nal[i] === 0 ? z + 1 : 0; }   // drop emulation-prevention bytes
+  let bit = 0; const u = k => { let v = 0; for (let i = 0; i < k; i++){ v = v*2 + ((r[bit >> 3] >> (7 - (bit & 7))) & 1); bit++; } return v; };
+  const ue = () => { let z = 0; while (!u(1)) z++; return 2 ** z - 1 + u(z); };
+  u(8); const prof = u(8); u(16); ue();
+  if ([100,110,122,244,44,83,86,118,128,138,139,134,135].includes(prof)){ if (ue() === 3) u(1); ue(); ue(); u(1); if (u(1)) return null; }   // scaling lists: not handled
+  ue(); const poc = ue(); if (poc === 0) ue(); else if (poc === 1){ u(1); ue(); ue(); const k = ue(); for (let i = 0; i < k; i++) ue(); }
+  ue(); u(1); ue(); ue(); if (!u(1)) u(1); u(1); if (u(1)){ ue(); ue(); ue(); ue(); }
+  if (!u(1)) return null;   // no VUI
+  if (u(1) && u(8) === 255) u(32);   // aspect ratio
+  if (u(1)) u(1);   // overscan
+  if (!u(1)) return null; u(4); if (!u(1)) return null;   // video signal type, colour description
+  u(8); const at = bit; if (u(8) !== 1) return null;
+  for (let i = 0; i < 8; i++){ const b = at + i, on = (13 >> (7 - i)) & 1; r[b >> 3] = (r[b >> 3] & ~(1 << (7 - (b & 7)))) | (on << (7 - (b & 7))); }
+  const o = []; for (let i = 0, z = 0; i < r.length; i++){ if (z >= 2 && r[i] <= 3){ o.push(3); z = 0; } o.push(r[i]); z = r[i] === 0 ? z + 1 : 0; }   // escape again
+  return o.length === nal.length ? Uint8Array.from(o) : null;
+}
 function fileDate(){ const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function startRecording(){
   if (!audioCtx || !analyser){ ui.recStatus.textContent = 'Connect an audio source before recording.'; return; }
@@ -2172,8 +2220,8 @@ function startRecording(){
   mediaRecorder.onerror = e => { ui.recStatus.textContent = 'Recording error: '+((e.error && e.error.message)||'check console'); };
   mediaRecorder.onstop = () => {
     videoTrack.stop(); ui.recRes.disabled = false;
-    const blob = new Blob(recordedChunks, {type:mimeType.split(';')[0]});
-    deliverFile(blob, 'Recording', 'copperlightV1_recordingFileNumber', (is4k?'4K':'1080p')+'.'+(isMp4?'mp4':'webm'), msg => { ui.recStatus.textContent = msg; });
+    const raw = new Blob(recordedChunks, {type:mimeType.split(';')[0]});
+    (isMp4 ? labelSRGB(raw) : Promise.resolve(raw)).then(blob => deliverFile(blob, 'Recording', 'copperlightV1_recordingFileNumber', (is4k?'4K':'1080p')+'.'+(isMp4?'mp4':'webm'), msg => { ui.recStatus.textContent = msg; }));
   };
   mediaRecorder.start(); recordStartMs = performance.now(); clearInterval(recordTimerId);
   recordTimerId = setInterval(() => { ui.recStatus.textContent = 'Recording '+(is4k?'4K':'1080p')+' — '+fmtTime((performance.now()-recordStartMs)/1000)+(isMp4?' (mp4)':' (webm — no mp4 encoder)')+(performance.now() < shotMsgUntil ? ' · '+shotMsg : ''); }, 250);
