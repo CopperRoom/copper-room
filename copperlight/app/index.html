@@ -306,7 +306,7 @@ body.s8.hudOn #hud{opacity:1;}
    ===================================================================================== */
 
 const $ = id => document.getElementById(id);
-const BUILD = 94;   // shown under "by Copper Room" so João can tell which build is loaded; bump with every Build NN commit
+const BUILD = 95;   // shown under "by Copper Room" so João can tell which build is loaded; bump with every Build NN commit
 const clamp = (x,a,b) => Math.max(a, Math.min(b, x));
 const LS_KEY = 'copperlightV1_state';
 function lsGet(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : v; } catch(e){ return d; } }
@@ -2113,7 +2113,6 @@ const recordCanvasGL = document.createElement('canvas'), recordCanvas2D = docume
 const recGL = recordCanvasGL.getContext('webgl2', {antialias:false, alpha:false, depth:false, stencil:false});
 const recordCtx = recordCanvas2D.getContext('2d');
 let recordCanvas = recordCanvas2D, recUseGL = null;   // null until recProbeFrame has measured (shortly after load)
-let recCopyMs = null;   // the measured copy time (recProbeFrame); Build 94 shows it with the chosen path while recording (temporary)
 let recScaleLoc = null;
 if (recGL){
   const sh = (type, src) => { const x = recGL.createShader(type); recGL.shaderSource(x, src); recGL.compileShader(x);
@@ -2229,7 +2228,7 @@ function startRecording(){
   // Data every second: holding sound and picture until stop, the iPad's recorder dropped the video after ~10.5 s (sound ran on, last frame held).
   // Measured on the iPad, Build 89: 10.5 / 10.0 s of 21 s without; full length with 1 s pieces (and with video only).
   mediaRecorder.start(1000); recordStartMs = performance.now(); clearInterval(recordTimerId);
-  recordTimerId = setInterval(() => { ui.recStatus.textContent = 'Recording '+(is4k?'4K':'1080p')+' — '+fmtTime((performance.now()-recordStartMs)/1000)+(isMp4?' (mp4)':' (webm — no mp4 encoder)')+' · path '+(recordCanvas === recordCanvasGL ? 'WebGL' : '2D')+(recCopyMs !== null ? ', copy test '+recCopyMs.toFixed(1)+' ms' : ', copy test pending')+(performance.now() < shotMsgUntil ? ' · '+shotMsg : ''); }, 250);
+  recordTimerId = setInterval(() => { ui.recStatus.textContent = 'Recording '+(is4k?'4K':'1080p')+' — '+fmtTime((performance.now()-recordStartMs)/1000)+(isMp4?' (mp4)':' (webm — no mp4 encoder)')+(performance.now() < shotMsgUntil ? ' · '+shotMsg : ''); }, 250);
   ui.recBtn.textContent = 'Stop (R)'; ui.recBtn.classList.add('active'); ui.setDot('rec', true);
 }
 function stopRecording(){
@@ -2238,15 +2237,15 @@ function stopRecording(){
 }
 // Which record path: the WebGL copy is timed once per page load, in the render loop right after the final pass (one upload per frame, frames 30-34,
 // median of the last 4). Under 2 ms means GPU to GPU (Chromium 0.0-0.1 ms, desktop WebKit 3-12 ms). Build 81 timed 4 uploads in a row at the
-// Record press: desktop WebKit once reported 1.0 ms there and chose WebGL (the slow path in WebKit). Suspected cause of the iPad recording at ~20 fps
-// on some page loads and ~30 on others (Build 94 checks it).
+// Record press: desktop WebKit once reported 1.0 ms there and chose WebGL (the slow path in WebKit). On the iPad (38-54 ms, always 2D) this was not
+// the cause of its recordings running at ~20 fps on some page loads and ~30 on others (Build 94); that one stays unexplained, inside Safari.
 // Until the measurement is in, recordings use the 2D path.
 let recProbeN = 0; const recProbeT = [];
 function recProbeFrame(){
   if (recUseGL !== null || ++recProbeN < 30) return;
   if (!recGL){ recUseGL = false; return; }
   const t0 = performance.now(); recGL.texImage2D(recGL.TEXTURE_2D, 0, recGL.RGBA, recGL.RGBA, recGL.UNSIGNED_BYTE, canvas); recProbeT.push(performance.now() - t0);
-  if (recProbeT.length === 5){ const t = recProbeT.slice(1).sort((a, b) => a - b); recCopyMs = (t[1] + t[2]) / 2; recUseGL = recCopyMs < 2; }
+  if (recProbeT.length === 5){ const t = recProbeT.slice(1).sort((a, b) => a - b); recUseGL = (t[1] + t[2]) / 2 < 2; }
 }
 function recGLFast(){ return recUseGL === true; }
 function copyToRecordCanvas(){ // cover-fit, no letterbox — only runs while recording, right after the final pass
