@@ -306,7 +306,7 @@ body.s8.hudOn #hud{opacity:1;}
    ===================================================================================== */
 
 const $ = id => document.getElementById(id);
-const BUILD = 87;   // shown under "by Copper Room" so João can tell which build is loaded; bump with every Build NN commit
+const BUILD = 88;   // shown under "by Copper Room" so João can tell which build is loaded; bump with every Build NN commit
 const clamp = (x,a,b) => Math.max(a, Math.min(b, x));
 const LS_KEY = 'copperlightV1_state';
 function lsGet(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : v; } catch(e){ return d; } }
@@ -2139,6 +2139,7 @@ void main(){ vec2 uv = 0.5 + (vUv - 0.5)*uScale; o = vec4(cr(vec2(uv.x, 1.0 - uv
   recGL.texParameteri(recGL.TEXTURE_2D, recGL.TEXTURE_WRAP_S, recGL.CLAMP_TO_EDGE); recGL.texParameteri(recGL.TEXTURE_2D, recGL.TEXTURE_WRAP_T, recGL.CLAMP_TO_EDGE);
 }
 let mediaRecorder = null, recordedChunks = [], recordStartMs = 0, recordTimerId = null;
+let recPushTrack = null;   // 2D record path: the capture track the app hands each copied frame to (requestFrame), or null when the browser picks frames itself
 function getRecordMimeCandidates(w){
   if (w > 1920) return ['video/mp4;codecs=avc1.640034,mp4a.40.2','video/mp4;codecs=avc1.640033,mp4a.40.2','video/mp4;codecs=avc1.4d0034,mp4a.40.2','video/mp4;codecs=avc1.4d0033,mp4a.40.2','video/mp4;codecs=avc1,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
   return ['video/mp4;codecs=avc1.640029,mp4a.40.2','video/mp4;codecs=avc1.4d0029,mp4a.40.2','video/mp4;codecs=avc1,mp4a.40.2','video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
@@ -2208,14 +2209,14 @@ function startRecording(){
     recFold = {on:false, r, l};
   }
   recordCanvas = recGLFast() ? recordCanvasGL : recordCanvas2D;
-  if (!recordCanvas.isConnected){   // in the page, 1 px and nearly transparent: on the iPad a record canvas outside the page stopped feeding the recorder after ~10.5 s
-    recordCanvas.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0.01;pointer-events:none;';
-    document.body.appendChild(recordCanvas);
-  }
   const is4k = ui.recRes.value === '4k'; recordCanvas.width = is4k ? 3840 : 1920; recordCanvas.height = is4k ? 2160 : 1080;
   const mimeType = pickRecordMimeType(recordCanvas.width);
   if (!mimeType){ ui.recStatus.textContent = 'No usable video encoder at that resolution — try 1080p.'; return; }
-  const videoTrack = recordCanvas.captureStream().getVideoTracks()[0];
+  // 2D path (WebKit, iPad): the app hands over each copied frame itself. With the browser picking up changes on its own, iPad recordings
+  // got no new frames after ~10.5 s (Build 86; the track never went muted, and attaching the canvas to the page did not help, Build 87).
+  const push = recordCanvas === recordCanvas2D && typeof CanvasCaptureMediaStreamTrack !== 'undefined' && 'requestFrame' in CanvasCaptureMediaStreamTrack.prototype;
+  const videoTrack = (push ? recordCanvas.captureStream(0) : recordCanvas.captureStream()).getVideoTracks()[0];
+  recPushTrack = push ? videoTrack : null;
   try { videoTrack.contentHint = 'motion'; } catch(e){}
   videoTrack.onmute = () => { ui.recStatus.textContent = 'Warning: video track stalled — recording may freeze from here.'; };
   const stream = new MediaStream([videoTrack, ...recordDest.stream.getAudioTracks()]); recordedChunks = [];
@@ -2225,7 +2226,7 @@ function startRecording(){
   mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) recordedChunks.push(e.data); };
   mediaRecorder.onerror = e => { ui.recStatus.textContent = 'Recording error: '+((e.error && e.error.message)||'check console'); };
   mediaRecorder.onstop = () => {
-    videoTrack.stop(); ui.recRes.disabled = false;
+    videoTrack.stop(); recPushTrack = null; ui.recRes.disabled = false;
     const raw = new Blob(recordedChunks, {type:mimeType.split(';')[0]});
     (isMp4 ? labelSRGB(raw) : Promise.resolve(raw)).then(blob => deliverFile(blob, 'Recording', 'copperlightV1_recordingFileNumber', (is4k?'4K':'1080p')+'.'+(isMp4?'mp4':'webm'), msg => { ui.recStatus.textContent = msg; }));
   };
@@ -2246,7 +2247,7 @@ function recGLFast(){   // time the WebGL copy once: median of 3 after a warm-up
 }
 function copyToRecordCanvas(){ // cover-fit, no letterbox — only runs while recording, right after the final pass
   const cw = recordCanvas.width, ch = recordCanvas.height, sw = canvas.width, sh = canvas.height, sc = Math.max(cw/sw, ch/sh);
-  if (recordCanvas === recordCanvas2D){ const dw = sw*sc, dh = sh*sc; recordCtx.drawImage(canvas, (cw-dw)/2, (ch-dh)/2, dw, dh); return; }
+  if (recordCanvas === recordCanvas2D){ const dw = sw*sc, dh = sh*sc; recordCtx.drawImage(canvas, (cw-dw)/2, (ch-dh)/2, dw, dh); if (recPushTrack) recPushTrack.requestFrame(); return; }
   recGL.viewport(0, 0, cw, ch); recGL.texImage2D(recGL.TEXTURE_2D, 0, recGL.RGBA, recGL.RGBA, recGL.UNSIGNED_BYTE, canvas);
   recGL.uniform2f(recScaleLoc, cw/(sw*sc), ch/(sh*sc)); recGL.drawArrays(recGL.TRIANGLES, 0, 3);
 }
