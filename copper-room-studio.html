@@ -1,401 +1,258 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="icon" type="image/png" href="copper-room-icon.png">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Cache-Control" content="no-store">
   <title>Studio — Copper Room</title>
+  <meta name="description" content="The Copper Room studio in Porto: a room built around synthesizers, drum machines, analogue outboard and vintage effects. Full gear list.">
+  <link rel="icon" type="image/png" href="copper-room-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400&display=swap" rel="stylesheet">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    button { -webkit-appearance: none; appearance: none; background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
-    :root {
-      --bg: #0a0a0a;
-      --fg: #e8e4dc;
-      --muted: rgba(232,228,220,0.35);
-      --border: rgba(232,228,220,0.1);
-      --copper: #b47830;
-    }
-    html, body { height: 100%; overflow: hidden; }
-    body { background: var(--bg); color: var(--fg); font-family: 'Inter', sans-serif; font-weight: 300; }
-    #scroller { position: fixed; inset: 0; overflow-y: scroll; }
-    canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
-    .page { position: relative; z-index: 1; padding-bottom: 3.5rem; }
-
-    /* NAV */
-    nav { position: sticky; top: 0; z-index: 10; display: flex; justify-content: space-between; align-items: flex-start; padding: 2rem 2.5rem; pointer-events: none; }
-    .wordmark { font-size: 13px; font-weight: 400; letter-spacing: 0.01em; color: var(--fg); pointer-events: all; cursor: pointer; text-decoration: none; }
-    .nav-links { text-align: right; line-height: 1.6; pointer-events: all; background: rgba(10,10,10,0.2); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); padding: 0.75rem 1.1rem; margin: -0.75rem -1.1rem; }
-    .nav-links a { display: block; font-size: 22px; font-weight: 300; letter-spacing: 0.04em; color: var(--fg); text-decoration: none; cursor: pointer; transition: opacity 0.2s, color 0.2s; }
-    .nav-links a:hover { opacity: 0.4; }
-    .nav-divider { width: 32px; height: 0; border-top: 0.5px solid rgba(232,228,220,0.25); margin: 1.1rem 0 0.9rem auto; }
-    .nav-group { display: block; font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--muted); line-height: 1; margin-bottom: 0.7rem; }
-    .nav-links a.current { color: var(--copper); opacity: 1; }
-
-    /* hamburger */
-    .menu-toggle { display: none; pointer-events: all; cursor: pointer; flex-direction: column; gap: 5px; align-items: flex-end; }
-    .menu-toggle span { display: block; height: 0.5px; background: var(--fg); transition: all 0.2s; }
-    .menu-toggle span:nth-child(1) { width: 24px; }
-    .menu-toggle span:nth-child(2) { width: 16px; }
-    .menu-toggle span:nth-child(3) { width: 20px; }
-
-    /* NAV OVERLAY — desktop: never shown */
-    .nav-overlay { display: none !important; }
-
-    /* PAGE HEADER */
-    .page-header { padding: 5rem 2.5rem 0; background: transparent; border-top: 0.5px solid var(--border); }
-    .page-header h1 { font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 300; line-height: 1.1; letter-spacing: -0.01em; margin-bottom: 1.5rem; }
-    .page-header p { font-size: 13px; line-height: 1.9; color: rgba(232,228,220,0.70); max-width: 400px; padding-bottom: 3rem; font-weight: 400; }
-
-    /* PHOTO GRID */
-    .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }
-    .photo-item { position: relative; aspect-ratio: 4/3; overflow: hidden; border: 0.5px solid var(--border); background: #111; cursor: pointer; }
-    .photo-item:hover .photo-overlay { opacity: 1; }
-    .photo-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #161210 0%, #0d0d0d 50%, #1a1410 100%); }
-    .photo-placeholder span { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(232,228,220,0.55); font-weight: 400; }
-    .photo-item.wide { grid-column: span 2; aspect-ratio: 16/7; }
-    .photo-item.tall { grid-row: span 2; aspect-ratio: auto; }
-    .photo-overlay { position: absolute; inset: 0; background: rgba(10,10,10,0.5); display: flex; align-items: flex-end; padding: 1.5rem; opacity: 0; transition: opacity 0.3s; }
-    .photo-caption { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(232,228,220,0.7); font-weight: 400; }
-
-    /* GEAR LIST */
-    .gear-section { padding: 5rem 2.5rem; border-top: 0.5px solid var(--border); background: var(--bg); }
-    .label { font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(232,228,220,0.55); margin-bottom: 3rem; font-weight: 400; }
-    .gear-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0; border-top: 0.5px solid var(--border); }
-    .gear-col { padding: 2rem 1.5rem 2rem 0; border-right: 0.5px solid var(--border); }
-    .gear-col:last-child { border-right: none; }
-    .gear-col:not(:first-child) { padding-left: 1.5rem; }
-    .gear-col h3 { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--copper); margin-bottom: 1.2rem; }
-    .gear-col ul { list-style: none; }
-    .gear-col li { font-size: 13px; color: rgba(232,228,220,0.55); font-weight: 400; padding: 0.5rem 0; border-bottom: 0.5px solid var(--border); line-height: 1.4; }
-    .gear-col li:last-child { border-bottom: none; }
-
-    /* FIXED FOOTER BAR */
-    .fixed-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 2.5rem; background: var(--bg); border-top: 0.5px solid var(--border); pointer-events: none; }
-    .fixed-bar .tagline { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(232,228,220,0.55); font-weight: 400; }
-    .fixed-bar .bar-socials { display: flex; gap: 1.2rem; pointer-events: all; }
-    .fixed-bar .bar-socials a { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(232,228,220,0.40); text-decoration: none; cursor: pointer; transition: color 0.2s; font-weight: 400; }
-    .fixed-bar .bar-socials a:hover { color: var(--fg); }
-
-    /* MOBILE */
-    @media (max-width: 768px) {
-      nav { padding: 1.5rem; align-items: center; }
-      .nav-links { display: none; }
-      .menu-toggle { display: flex; }
-      .nav-overlay {
-        display: none !important;
-        position: fixed;
-        inset: 0;
-        background: var(--bg);
-        z-index: 100;
-        flex-direction: column;
-        justify-content: center;
-        align-items: flex-end;
-        padding: 3rem 2rem;
-        text-align: right;
-        pointer-events: all;
-      }
-      .nav-overlay.open { display: flex !important; }
-      .nav-overlay a { display: block; font-size: 26px; font-weight: 300; font-family: 'Inter', sans-serif; padding: 0.35rem 0; letter-spacing: 0.02em; color: var(--fg); text-decoration: none; pointer-events: all; }
-      .nav-overlay .nav-divider { margin: 1.2rem 0 1rem auto; }
-      .nav-overlay .nav-group { font-size: 9px; padding: 0 0 0.4rem; }
-      .nav-overlay a:hover { opacity: 0.4; }
-      .nav-close { position: absolute; top: 1.8rem; right: 1.8rem; font-size: 8px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); cursor: pointer; pointer-events: all; font-family: 'Inter', sans-serif; font-weight: 300; }
-      .page-header { padding: 3rem 1.5rem 0; }
-      .photo-grid { grid-template-columns: 1fr 1fr; }
-      .photo-item.wide { grid-column: span 2; aspect-ratio: 16/9; }
-      .photo-item.tall { grid-row: span 1; }
-      .gear-section { padding: 3rem 1.5rem; }
-      .gear-grid { grid-template-columns: 1fr; }
-      .gear-col { border-right: none !important; padding-left: 0 !important; padding-right: 0 !important; border-bottom: 0.5px solid var(--border); padding-bottom: 2rem; }
-      .gear-col:last-child { border-bottom: none; }
-      .fixed-bar { padding: 1rem 1.5rem; }
-      .fixed-bar .tagline { display: none; }
-    }
-  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="site.css">
 </head>
 <body>
 
-<canvas id="c"></canvas>
+<!-- TOP BAR: Work, Sound Packs and Studio open their own pages; the rest go to homepage sections -->
+<header class="topbar" id="topbar">
+  <a class="wordmark" href="index.html">Copper <span>Room</span></a>
+  <ul class="menu" id="menu">
+    <li><a href="copper-room-portfolio.html">Work</a></li>
+    <li><a href="index.html#services">Services</a></li>
+    <li><a href="copper-room-packs.html">Sound Packs</a></li>
+    <li><a href="copper-room-studio.html" class="active" aria-current="page">Studio</a></li>
+    <li><a href="index.html#about">About</a></li>
+    <li><a href="index.html#apps">Apps</a></li>
+    <li class="mobile-cta"><a href="index.html#contact">Let's Connect</a></li>
+  </ul>
+  <a class="top-cta" href="index.html#contact">Let's Connect</a>
+  <button class="menu-toggle" id="menuToggle" aria-label="Open menu" aria-expanded="false"><span></span><span></span><span></span></button>
+</header>
 
-<div id="scroller">
-  <div class="page">
+<main>
 
-    <nav>
-      <a class="wordmark" href="index.html">Copper Room</a>
-      <div class="nav-links">
-        <a href="index.html#about">About</a>
-        <a href="copper-room-packs.html">Sound Packs</a>
-        <a href="index.html#services">Services</a>
-        <a href="copper-room-portfolio.html">Portfolio</a>
-        <a href="index.html#process">Process</a>
-        <a href="copper-room-studio.html" class="current">Studio</a>
-        <a href="index.html#newsletter">The List</a>
-        <a href="index.html#contact">Contact</a>
-        <div class="nav-divider"></div>
-        <span class="nav-group">Apps</span>
-        <a href="copperlight/">Copperlight</a>
-      </div>
-      <button class="menu-toggle" id="menuToggle" aria-label="Menu">
-        <span></span><span></span><span></span>
-      </button>
-    </nav>
+  <!-- Page header -->
+  <section class="hero page-hero" id="top">
+    <canvas id="c" aria-hidden="true"></canvas>
+    <p class="label crumb"><a href="index.html">Copper Room</a> <b>/</b> Studio</p>
+    <h1>A room full of <em>instruments</em></h1>
+    <p class="lead">A room built around hardware, signal chains and the sound that happens between them.</p>
+  </section>
 
-    <div class="page-header">
-      <h1>Studio</h1>
-      <p>A room built around hardware, signal chains, and the sound that happens between them.</p>
-    </div>
-
-    <!-- PHOTO GRID -->
+<!-- 1. THE ROOM: photo slots, same sizes the real photos will use -->
+  <section id="room" class="t-light">
+    <p class="label"><b>01</b> The room</p>
     <div class="photo-grid">
-      <div class="photo-item wide">
-        <div class="photo-placeholder"><span>Studio overview</span></div>
-        <div class="photo-overlay"><span class="photo-caption">The room</span></div>
+      <div class="photo wide"><span class="ph">The room, wide shot after the remodel</span></div>
+      <div class="photo"><span class="ph">Synth rack</span></div>
+      <div class="photo"><span class="ph">Moog Subsequent 37</span></div>
+      <div class="photo"><span class="ph">Roland RE-201 Space Echo</span></div>
+      <div class="photo"><span class="ph">Roland Juno-106</span></div>
+      <div class="photo"><span class="ph">Outboard rack</span></div>
+      <div class="photo wide"><span class="ph">Desk and signal chain</span></div>
+      <div class="photo"><span class="ph">Patchbay</span></div>
+    </div>
+  </section>
+
+  <!-- 2. EQUIPMENT -->
+  <section id="equipment">
+    <p class="label"><b>02</b> Equipment</p>
+    <div class="split intro">
+      <h2 class="statement">The gear</h2>
+      <p class="lead">Everything here is wired and ready to play. If you'd like a particular instrument on your record, just ask.</p>
+    </div>
+    <div class="gear-cols">
+      <div class="gear-col">
+        <h3>Synthesizers &amp; keyboards</h3>
+        <ul>
+          <li>Behringer Model D</li>
+          <li>Behringer MS-1 MkII</li>
+          <li>Casio PT-1</li>
+          <li>Casio SK-10</li>
+          <li>Dreadbox Erebus v3 Special Edition</li>
+          <li>Dreadbox Nymphes</li>
+          <li>Elektron Digitone II</li>
+          <li>Fender Rhodes 73 Mk1</li>
+          <li>Korg ARP 2600 M</li>
+          <li>Korg MS-20</li>
+          <li>Moog DFAM</li>
+          <li>Moog Minitaur</li>
+          <li>Moog Mother-32</li>
+          <li>Moog Subharmonicon</li>
+          <li>Moog Subsequent 37</li>
+          <li>Oberheim Matrix 1000</li>
+          <li>Roland D-50</li>
+          <li>Roland Juno-106</li>
+          <li>Roland RS-09</li>
+          <li>Eurorack modular systems (various)</li>
+          <li>Sonicware Liven 8-bit Warps</li>
+          <li>Yamaha DX-7</li>
+          <li>Yamaha VSS-200</li>
+        </ul>
       </div>
-      <div class="photo-item">
-        <div class="photo-placeholder"><span>Synth rack</span></div>
-        <div class="photo-overlay"><span class="photo-caption">Synthesizers</span></div>
+      <div class="gear-col">
+        <h3>Drum machines &amp; samplers</h3>
+        <ul>
+          <li>Alesis HR-16</li>
+          <li>Elektron Digitakt</li>
+          <li>Roland TR-1000</li>
+        </ul>
       </div>
-      <div class="photo-item">
-        <div class="photo-placeholder"><span>Moog Subsequent 37</span></div>
-        <div class="photo-overlay"><span class="photo-caption">Moog Subsequent 37</span></div>
+      <div class="gear-col">
+        <h3>Outboard</h3>
+        <ul>
+          <li>Alesis 3632</li>
+          <li>DBX 166</li>
+          <li>DBX 566</li>
+          <li>TL Audio C-1</li>
+        </ul>
       </div>
-      <div class="photo-item">
-        <div class="photo-placeholder"><span>Roland RE-201</span></div>
-        <div class="photo-overlay"><span class="photo-caption">Roland RE-201 Space Echo</span></div>
+      <div class="gear-col">
+        <h3>Effects</h3>
+        <ul>
+          <li>Alesis Microverb 4</li>
+          <li>Alesis Quadraverb</li>
+          <li>Boss BF-2</li>
+          <li>Boss DD-3</li>
+          <li>Boss DM-2w</li>
+          <li>Boss LS-2</li>
+          <li>Boss OD-1X</li>
+          <li>Boss PH-1</li>
+          <li>Boss PS-3</li>
+          <li>Boss SE-50</li>
+          <li>DOD Boneshaker</li>
+          <li>EarthQuaker Devices Sea Machine</li>
+          <li>EHX Deluxe Memory Man (big box)</li>
+          <li>EHX Mel9</li>
+          <li>EHX Russian Big Muff</li>
+          <li>Empress Zoia</li>
+          <li>Eventide PitchFactor</li>
+          <li>Eventide Space</li>
+          <li>Eventide TimeFactor</li>
+          <li>Hologram Microcosm</li>
+          <li>Ibanez DE7</li>
+          <li>Maxon OD-808</li>
+          <li>Meris Ottobit Jr.</li>
+          <li>Moog MF Trem</li>
+          <li>Roland RE-201 Space Echo</li>
+          <li>Teisco Delay</li>
+          <li>Vongon Polyphrase</li>
+        </ul>
       </div>
-      <div class="photo-item">
-        <div class="photo-placeholder"><span>Juno-106</span></div>
-        <div class="photo-overlay"><span class="photo-caption">Roland Juno-106</span></div>
+      <div class="gear-col">
+        <h3>Recording &amp; control</h3>
+        <ul>
+          <li>ADAM Audio A7X</li>
+          <li>AIWA AD-WX999</li>
+          <li>Arturia KeyLab 61 Mk3</li>
+          <li>Arturia V Collection 9</li>
+          <li>Audient EVO 16</li>
+          <li>iConnectivity mioXM</li>
+          <li>Logic Pro</li>
+          <li>Monolith M1060</li>
+          <li>OXI Instruments One</li>
+          <li>Palmer Daccapo</li>
+          <li>Palmer River Trave (x2)</li>
+          <li>Revox B77 MkII</li>
+          <li>Roland M-16E</li>
+          <li>Roland M-160 (x2)</li>
+          <li>Squarp Hapax</li>
+          <li>Steven Slate Audio VSX Immersion One</li>
+          <li>Tascam Portastudio 424 MkIII</li>
+          <li>Topping DX1 II</li>
+          <li>Torso T-1</li>
+        </ul>
       </div>
-      <div class="photo-item">
-        <div class="photo-placeholder"><span>Outboard</span></div>
-        <div class="photo-overlay"><span class="photo-caption">Outboard gear</span></div>
+      <div class="gear-col">
+        <h3>Amplifiers</h3>
+        <ul>
+          <li>Hiwatt Hi-Gain 50</li>
+          <li>Peavey 5150 II</li>
+        </ul>
       </div>
-      <div class="photo-item wide">
-        <div class="photo-placeholder"><span>Mixing desk</span></div>
-        <div class="photo-overlay"><span class="photo-caption">Signal chain</span></div>
-      </div>
-      <div class="photo-item">
-        <div class="photo-placeholder"><span>Patchbay</span></div>
-        <div class="photo-overlay"><span class="photo-caption">Patchbay</span></div>
+      <div class="gear-col">
+        <h3>Guitars &amp; bass</h3>
+        <ul>
+          <li>Fender Jazz Bass</li>
+          <li>Fender Standard Telecaster</li>
+          <li>Gibson Les Paul Custom 1984</li>
+          <li>Squier J Mascis Jazzmaster</li>
+          <li>Taylor 814ce Next Gen</li>
+          <li>Washburn WI-64</li>
+          <li>Yamaha FS720S</li>
+        </ul>
       </div>
     </div>
+  </section>
 
-    <!-- GEAR LIST -->
-    <div class="gear-section">
-      <p class="label">Equipment</p>
-      <div class="gear-grid">
-        <div class="gear-col">
-          <h3>Synthesizers & Keyboards</h3>
-          <ul>
-            <li>Behringer Model D</li>
-            <li>Behringer MS-1 MkII</li>
-            <li>Casio PT-1</li>
-            <li>Casio SK-10</li>
-            <li>Dreadbox Erebus v3 Special Edition</li>
-            <li>Dreadbox Nymphes</li>
-            <li>Elektron Digitone II</li>
-            <li>Fender Rhodes 73 Mk1</li>
-            <li>Korg ARP 2600 M</li>
-            <li>Korg MS-20</li>
-            <li>Moog DFAM</li>
-            <li>Moog Minitaur</li>
-            <li>Moog Mother-32</li>
-            <li>Moog Subharmonicon</li>
-            <li>Moog Subsequent 37</li>
-            <li>Oberheim Matrix 1000</li>
-            <li>Roland D-50</li>
-            <li>Roland Juno-106</li>
-            <li>Roland RS-09</li>
-            <li>Eurorack Modular Systems (various)</li>
-            <li>Sonicware Liven 8-bit Warps</li>
-            <li>Yamaha DX-7</li>
-            <li>Yamaha VSS-200</li>
-          </ul>
-        </div>
-        <div class="gear-col">
-          <h3>Drum Machines & Samplers</h3>
-          <ul>
-            <li>Alesis HR-16</li>
-            <li>Elektron Digitakt</li>
-            <li>Roland TR-1000</li>
-          </ul>
-        </div>
-        <div class="gear-col">
-          <h3>Outboard</h3>
-          <ul>
-            <li>Alesis 3632</li>
-            <li>DBX 166</li>
-            <li>DBX 566</li>
-            <li>TL Audio C-1</li>
-          </ul>
-        </div>
-        <div class="gear-col">
-          <h3>Effects</h3>
-          <ul>
-            <li>Alesis Microverb 4</li>
-            <li>Alesis Quadraverb</li>
-            <li>Boss BF-2</li>
-            <li>Boss DD-3</li>
-            <li>Boss DM-2w</li>
-            <li>Boss LS-2</li>
-            <li>Boss OD-1X</li>
-            <li>Boss PH-1</li>
-            <li>Boss PS-3</li>
-            <li>Boss SE-50</li>
-            <li>DOD Boneshaker</li>
-            <li>Earthquaker Devices Sea Machine</li>
-            <li>EHX Deluxe Memory Man (big box)</li>
-            <li>EHX Mel9</li>
-            <li>EHX Russian Big Muff</li>
-            <li>Empress Zoia</li>
-            <li>Eventide Pitchfactor</li>
-            <li>Eventide Space</li>
-            <li>Eventide Timefactor</li>
-            <li>Hologram Microcosm</li>
-            <li>Ibanez DE7</li>
-            <li>Maxon OD-808</li>
-            <li>Meris Ottobit Jr.</li>
-            <li>Moog MF Trem</li>
-            <li>Roland RE-201 Space Echo</li>
-            <li>Teisco Delay</li>
-            <li>Vongon Polyphrase</li>
-          </ul>
-        </div>
-        <div class="gear-col">
-          <h3>Recording & Control</h3>
-          <ul>
-            <li>ADAM Audio A7X</li>
-            <li>AIWA AD-WX999</li>
-            <li>Allen & Heath ZED R16</li>
-            <li>Arturia Keylab 61 Mk3</li>
-            <li>Arturia V Collection 9</li>
-            <li>Audient EVO 16</li>
-            <li>iConnectivity mioXM</li>
-            <li>Logic Pro</li>
-            <li>Monolith M1060</li>
-            <li>OXI Instruments One</li>
-            <li>Palmer Daccapo</li>
-            <li>Palmer River Trave (x2)</li>
-            <li>Revox B77 MkII</li>
-            <li>Roland M-16E</li>
-            <li>Roland M-160 (x2)</li>
-            <li>Squarp Hapax</li>
-            <li>Steven Slate Audio VSX Immersion One</li>
-            <li>Tascam Portastudio 424 MkIII</li>
-            <li>Topping DX1 II</li>
-            <li>Torso T-1</li>
-          </ul>
-        </div>
-        <div class="gear-col">
-          <h3>Amplifiers</h3>
-          <ul>
-            <li>Hiwatt Hi-Gain 50</li>
-            <li>Peavey 5150 II</li>
-          </ul>
-        </div>
-        <div class="gear-col">
-          <h3>Guitar & Bass</h3>
-          <ul>
-            <li>Fender Jazzbass</li>
-            <li>Fender Standard Telecaster</li>
-            <li>Gibson Les Paul Custom 1984</li>
-            <li>Squier J.Mascis Jazzmaster</li>
-            <li>Taylor 814ce Next Gen</li>
-            <li>Washburn WI-64</li>
-            <li>Yamaha FS720S</li>
-          </ul>
-        </div>
+  <!-- Closing call to action -->
+  <section class="cta t-light">
+    <p class="label"><b>Next</b></p>
+    <div class="split">
+      <h2 class="statement">Want this room on your record?</h2>
+      <div>
+        <p class="lead">Bring a project, or tell me what you need and I’ll suggest the gear and the approach.</p>
+        <a class="btn soft" href="index.html#contact">Let's Connect</a>
       </div>
     </div>
+  </section>
 
+</main>
+
+<!-- FOOTER: newsletter, sitemap, contact and socials in one place -->
+<footer>
+  <div class="foot-grid">
+    <div>
+      <h4>Newsletter</h4>
+      <p class="list-title">Free samples in your inbox</p>
+      <p class="list-copy">Each issue comes with a free sample file from the studio, plus notes on how it was made. No fixed schedule and no filler.</p>
+      <!-- Newsletter: Brevo form (same list as the previous site); the hidden iframe keeps visitors on the page -->
+      <form id="newsletter-form" action="https://5be2ff2c.sibforms.com/serve/MUIFAPYCa2Jq5SgdNRzi57_lMHj5da7xY0XewkCRL9cxyhRDZmIQOPo0FMUdDIOACqzkiay8u1pmOxYHQo48WP_ZJ0vWoFEGiOhlGmZJisLnOIHq6jxNNmJ9ILMprJuKeolSrV8NEMpn7GT8h-mqJGJwNrpxFb0CRvw8I4rzcoqY3p5KDmghr-aJt9a4VVLKvKjN4_jGtomBqcybMg==" method="POST" target="brevo-iframe">
+        <input type="hidden" name="locale" value="en">
+        <input type="text" name="email_address_check" value="" style="display:none;" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <div class="email-row"><input type="email" name="EMAIL" placeholder="you@example.com" aria-label="Email address" required><button type="submit">Subscribe</button></div>
+      </form>
+      <iframe name="brevo-iframe" style="display:none;" aria-hidden="true" title="Newsletter sign-up"></iframe>
+      <p class="form-msg" id="newsletter-success" role="status">Check your inbox to confirm your subscription.</p>
+    </div>
+    <div>
+      <h4>Explore</h4>
+      <ul>
+        <li><a href="copper-room-portfolio.html">Portfolio</a></li>
+        <li><a href="copper-room-packs.html">Sound Packs</a></li>
+        <li><a href="copper-room-studio.html">Studio &amp; gear</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Apps</h4>
+      <ul>
+        <li><a href="copperlight/">Copperlight ↗</a></li>
+        <li>Copperline <span class="soon">· soon</span></li>
+        <li>Copperpatch <span class="soon">· soon</span></li>
+        <li>Coppervinyl <span class="soon">· soon</span></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Contact</h4>
+      <ul>
+        <li><a href="mailto:hello@copperroom.studio">hello@copperroom.studio</a></li>
+        <li>Porto, Portugal</li>
+        <li>Los Angeles, California</li>
+      </ul>
+    </div>
+    <div>
+      <h4>Follow</h4>
+      <ul>
+        <li><a href="https://instagram.com/bonifaciothecreator" target="_blank" rel="noopener">Instagram ↗</a></li>
+        <li><a href="https://youtube.com/@bonifaciothecreator" target="_blank" rel="noopener">YouTube ↗</a></li>
+      </ul>
+    </div>
   </div>
-</div>
-
-<div class="nav-overlay" id="navOverlay">
-  <span class="nav-close" id="navClose">Close</span>
-  <a href="index.html#about">About</a>
-  <a href="copper-room-packs.html">Sound Packs</a>
-  <a href="index.html#services">Services</a>
-  <a href="copper-room-portfolio.html">Portfolio</a>
-  <a href="index.html#process">Process</a>
-  <a href="copper-room-studio.html" class="current">Studio</a>
-  <a href="index.html#newsletter">The List</a>
-  <a href="index.html#contact">Contact</a>
-  <div class="nav-divider"></div>
-  <span class="nav-group">Apps</span>
-  <a href="copperlight/">Copperlight</a>
-</div>
-
-<div class="fixed-bar">
-  <span class="tagline">Analogue sound design</span>
-  <div class="bar-socials">
-    <a href="https://instagram.com/bonifaciothecreator" target="_blank">Instagram</a>
-    <a href="https://youtube.com/@bonifaciothecreator" target="_blank">YouTube</a>
+  <div class="foot-bottom">
+    <span>© 2026 Copper Room</span>
+    <a href="copper-room-privacy.html">Privacy</a>
   </div>
-</div>
+</footer>
 
-<script>
-  const menuToggle = document.getElementById('menuToggle');
-  const navOverlay = document.getElementById('navOverlay');
-
-  navOverlay.classList.remove('open');
-  menuToggle.classList.remove('open');
-
-  function closeMenu() {
-    menuToggle.classList.remove('open');
-    navOverlay.classList.remove('open');
-  }
-
-  menuToggle.addEventListener('click', () => { menuToggle.classList.toggle('open'); navOverlay.classList.toggle('open'); });
-  menuToggle.addEventListener('touchend', (e) => { e.preventDefault(); menuToggle.classList.toggle('open'); navOverlay.classList.toggle('open'); });
-
-  const navClose = document.getElementById('navClose');
-  navClose.addEventListener('click', closeMenu);
-  navClose.addEventListener('touchend', (e) => { e.preventDefault(); closeMenu(); });
-
-  window.addEventListener('unload', () => {});
-  window.addEventListener('pageshow', () => { navOverlay.classList.remove('open'); menuToggle.classList.remove('open'); });
-
-  const canvas = document.getElementById('c');
-  const ctx = canvas.getContext('2d');
-  const a = 3, b = 2;
-  let elapsed = 0, last = null;
-  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-  function draw(ts) {
-    if (last === null) last = ts;
-    elapsed += ts - last; last = ts;
-    const W = canvas.width, H = canvas.height;
-    const cx = W * 0.5, cy = H * 0.5;
-    const R = Math.min(W, H) * 0.42;
-    const steps = 600;
-    const d = Math.sin(elapsed * 0.00016) * Math.PI;
-    ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, W, H);
-    ctx.beginPath();
-    for (let s = 0; s <= steps; s++) {
-      const angle = (s / steps) * Math.PI * 2;
-      const x = cx + R * Math.sin(a * angle + d + 0.3);
-      const y = cy + R * Math.sin(b * angle);
-      s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.strokeStyle = 'rgba(232,228,220,0.05)'; ctx.lineWidth = 1; ctx.stroke();
-    ctx.beginPath();
-    for (let s = 0; s <= steps; s++) {
-      const angle = (s / steps) * Math.PI * 2;
-      const x = cx + R * Math.sin(a * angle + d);
-      const y = cy + R * Math.sin(b * angle);
-      s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.strokeStyle = 'rgba(180,120,60,0.35)'; ctx.lineWidth = 1; ctx.stroke();
-    requestAnimationFrame(draw);
-  }
-  resize(); window.addEventListener('resize', resize); requestAnimationFrame(draw);
-</script>
-
+<script src="site.js"></script>
 </body>
 </html>
