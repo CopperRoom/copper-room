@@ -17,6 +17,9 @@ The publishing branch is `main` (confirm under GitHub → Settings → Pages if 
 - The landing page's version text and download link (e.g. `download/copperlight-v1.0.zip`, its size in KB) must match what's in `copperlight/download/`. When a new Copperlight build changes the version or ZIP, update the landing page here to match.
 - `shots/` holds screenshots the user manages. Never remove or rename anything there unless the user asks.
 
+### Shared styles and script
+- Every page links `site.css` and `site.js` with a version tag, e.g. `site.css?v=20261108`. Whenever either file changes, set a new tag (today's date as YYYYMMDD; add -2, -3 for more than one change in a day) on every page that links them, on every branch that gets the change. Otherwise browsers can keep the old file for up to 10 minutes and mix it with new pages.
+
 ### Session start
 - Run `git pull`. If it fails, or `git status` shows uncommitted changes, stop and tell the user before doing anything else.
 
