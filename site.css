@@ -307,3 +307,9 @@ footer .soon { color: var(--dim); font-size: 12px; }
 }
 .split.intro { margin-bottom: clamp(3rem, 6vw, 4.5rem); }
 .page-hero.short { min-height: 58svh; }
+
+/* ---------- Copperlight landing page ---------- */
+.hero h1 .version { font-size: 0.22em; letter-spacing: 0.08em; color: var(--copper); vertical-align: super; font-weight: 400; }
+.app-note { margin-top: 1.75rem; max-width: 40rem; font-size: 12px; line-height: 1.7; color: var(--dim); font-weight: 400; }
+.shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); gap: clamp(0.75rem, 2vw, 1.5rem); }
+.shots img { display: block; width: 100%; height: auto; border: 0.5px solid var(--border); }

@@ -4,11 +4,12 @@
 // ---------- Top bar: glass once you scroll, and the colours of the section underneath ----------
 const topbar = document.getElementById('topbar');
 const bands = [...document.querySelectorAll('main > section, footer')];
+const visible = el => !el.hidden;
 const themes = ['t-light', 't-copper', 't-ember'];
 const onScroll = () => {
   topbar.classList.toggle('scrolled', window.scrollY > 20);
   let under = bands[0];
-  for (const b of bands) if (b.getBoundingClientRect().top <= 32) under = b;
+  for (const b of bands) if (visible(b) && b.getBoundingClientRect().top <= 32) under = b;
   if (under) themes.forEach(t => topbar.classList.toggle(t, under.classList.contains(t)));
 };
 addEventListener('scroll', onScroll, { passive: true }); onScroll();
