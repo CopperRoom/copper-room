@@ -1,543 +1,110 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="icon" type="image/png" href="copper-room-icon.png">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Cache-Control" content="no-store">
+  <!-- Temporary holding page while the new site is built on the "redesign" branch. Keep it out of search results. -->
+  <meta name="robots" content="noindex">
   <title>Copper Room</title>
+  <meta name="description" content="Copper Room is the Porto studio of producer and engineer João Bonifácio. A new site is on the way.">
+  <link rel="icon" type="image/png" href="copper-room-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    button { -webkit-appearance: none; appearance: none; background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
     :root {
       --bg: #0a0a0a;
       --fg: #e8e4dc;
-      --muted: rgba(232,228,220,0.35);
-      --border: rgba(232,228,220,0.1);
-      --copper: #b47830;
+      --text: rgba(232,228,220,0.74);
+      --dim: rgba(232,228,220,0.55);
+      --border: rgba(232,228,220,0.12);
+      --copper: #b5502f;
+      --copper-soft: color-mix(in srgb, #b5502f 14%, transparent);
+      --gutter: clamp(1.25rem, 4vw, 2.5rem);
     }
-    html, body { height: 100%; overflow: hidden; }
-    body { background: var(--bg); color: var(--fg); font-family: 'Inter', sans-serif; font-weight: 300; }
-    #scroller { position: fixed; inset: 0; overflow-y: scroll; scroll-behavior: smooth; }
-    canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
-    .page { position: relative; z-index: 1; padding-bottom: 4rem; }
-
-    /* NAV */
-    nav { position: sticky; top: 0; z-index: 10; display: flex; justify-content: space-between; align-items: flex-start; padding: 2rem 2.5rem; pointer-events: none; }
-    .wordmark { font-size: 13px; font-weight: 400; letter-spacing: 0.01em; color: var(--fg); pointer-events: all; cursor: pointer; }
-    .nav-links { text-align: right; line-height: 1.6; pointer-events: all; background: rgba(10,10,10,0.2); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); padding: 0.75rem 1.1rem; margin: -0.75rem -1.1rem; }
-    .nav-links a { display: block; font-size: 22px; font-weight: 300; letter-spacing: 0.04em; color: var(--fg); text-decoration: none; cursor: pointer; transition: opacity 0.2s, color 0.2s; }
-    .nav-links a:hover { opacity: 0.4; }
-    .nav-links a.active { color: var(--copper); opacity: 1; }
-    .nav-divider { width: 32px; height: 0; border-top: 0.5px solid rgba(232,228,220,0.25); margin: 1.1rem 0 0.9rem auto; }
-    .nav-group { display: block; font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--muted); line-height: 1; margin-bottom: 0.7rem; }
-
-    /* hamburger */
-    .menu-toggle { display: none; pointer-events: all; cursor: pointer; background: none; border: none; padding: 0; flex-direction: column; gap: 5px; align-items: flex-end; }
-    .menu-toggle span { display: block; height: 0.5px; background: var(--fg); transition: width 0.2s; }
-    .menu-toggle span:nth-child(1) { width: 24px; }
-    .menu-toggle span:nth-child(2) { width: 16px; }
-    .menu-toggle span:nth-child(3) { width: 20px; }
-    .menu-toggle.open span:nth-child(1) { width: 24px; transform: rotate(45deg) translate(4px, 4px); }
-    .menu-toggle.open span:nth-child(2) { opacity: 0; }
-    .menu-toggle.open span:nth-child(3) { width: 24px; transform: rotate(-45deg) translate(4px, -4px); }
-
-    /* HERO */
-    .hero { height: 100vh; min-height: 600px; display: flex; flex-direction: column; justify-content: flex-end; padding: 2rem 2.5rem; background: transparent; margin-top: -6rem; }
-
-    .solid { background: var(--bg); }
-    .transparent { background: transparent; }
-
-    .section { padding: 5rem 2.5rem; border-top: 0.5px solid var(--border); }
-    .label { font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(232,228,220,0.55); margin-bottom: 3rem; font-weight: 400; }
-    .copper-link { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--copper); text-decoration: none; border-bottom: 0.5px solid rgba(180,120,60,0.3); padding-bottom: 2px; cursor: pointer; transition: border-color 0.2s; font-weight: 400; }
-    .copper-link:hover { border-color: var(--copper); }
-    .highlight { color: var(--copper); font-weight: 400; }
-
-    /* INTRO */
-    .intro h2 { font-size: clamp(2rem, 4vw, 3.2rem); font-weight: 300; line-height: 1.15; letter-spacing: -0.01em; max-width: 560px; margin-bottom: 2rem; }
-    .intro p { font-size: 14px; line-height: 1.9; color: rgba(232,228,220,0.70); max-width: 420px; font-weight: 400; }
-
-    /* SOUND PACKS */
-    .releases-grid { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 0.5px solid var(--border); }
-    .release { padding: 2.5rem 2rem 2.5rem 0; border-right: 0.5px solid var(--border); }
-    .release:last-child { border-right: none; }
-    .release:not(:first-child) { padding-left: 2rem; }
-    .release-num { font-size: 10px; letter-spacing: 0.2em; color: var(--copper); margin-bottom: 1.2rem; font-weight: 400; }
-    .release-title { font-size: 18px; font-weight: 300; color: var(--fg); margin-bottom: 0.5rem; line-height: 1.2; }
-    .release-sub { font-size: 12px; color: rgba(232,228,220,0.70); margin-bottom: 2rem; line-height: 1.6; font-weight: 400; }
-    .release-tag { display: inline-block; font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; padding: 4px 10px; border: 0.5px solid var(--border); color: rgba(232,228,220,0.55); font-weight: 400; }
-    .release-tag.available { border-color: rgba(180,120,60,0.3); color: var(--copper); }
-
-    /* SERVICES */
-    .services-grid { display: grid; grid-template-columns: repeat(2, 1fr); border-top: 0.5px solid var(--border); }
-    .service { padding: 2.5rem 2rem 2.5rem 0; border-right: 0.5px solid var(--border); border-bottom: 0.5px solid var(--border); }
-    .service:nth-child(even) { border-right: none; padding-left: 2rem; padding-right: 0; }
-    .service:nth-last-child(-n+2) { border-bottom: none; }
-    .service-num { font-size: 10px; letter-spacing: 0.2em; color: rgba(232,228,220,0.55); margin-bottom: 1.2rem; font-weight: 400; }
-    .service-title { font-size: 24px; font-weight: 300; color: var(--fg); line-height: 1.1; margin-bottom: 1.2rem; }
-    .service-desc { font-size: 12px; line-height: 1.85; color: rgba(232,228,220,0.70); font-weight: 400; }
-
-    /* PROCESS */
-    .process-grid { display: grid; grid-template-columns: 1fr 1fr; border-top: 0.5px solid var(--border); }
-    .process-col { padding: 3rem 0; }
-    .process-col:first-child { padding-right: 3rem; border-right: 0.5px solid var(--border); }
-    .process-col:last-child { padding-left: 3rem; }
-    .process-col h3 { font-size: 20px; font-weight: 300; color: var(--fg); margin-bottom: 1rem; line-height: 1.2; }
-    .process-col p { font-size: 13px; line-height: 1.9; color: rgba(232,228,220,0.55); margin-bottom: 1.5rem; font-weight: 400; }
-
-    /* ABOUT */
-    .about-grid { display: grid; grid-template-columns: 1fr 1fr; border-top: 0.5px solid var(--border); }
-    .about-left { padding: 3rem 3rem 3rem 0; border-right: 0.5px solid var(--border); }
-    .about-right { padding: 3rem 0 3rem 3rem; display: flex; flex-direction: column; justify-content: flex-end; }
-    .about-left h2 { font-size: clamp(1.6rem, 2.5vw, 2.2rem); font-weight: 300; line-height: 1.2; margin-bottom: 2rem; }
-    .about-left p, .about-right p { font-size: 13px; line-height: 1.95; color: rgba(232,228,220,0.55); margin-bottom: 1.2rem; font-weight: 400; }
-
-    /* NEWSLETTER */
-    .newsletter { border-bottom: 0.5px solid var(--border); display: flex; flex-direction: column; gap: 2rem; }
-    .newsletter h3 { font-size: 24px; font-weight: 300; color: var(--fg); margin-bottom: 0.5rem; }
-    .newsletter p { font-size: 12px; color: rgba(232,228,220,0.55); line-height: 1.7; font-weight: 400; }
-    .email-row { display: flex; border: 0.5px solid rgba(232,228,220,0.2); max-width: 480px; }
-    .email-row input { background: transparent; border: none; outline: none; padding: 0.85rem 1rem; font-size: 12px; color: var(--fg); font-family: 'Inter', sans-serif; font-weight: 400; flex: 1; }
-    .email-row input::placeholder { color: rgba(232,228,220,0.55); }
-    .email-row button { background: rgba(180,120,60,0.12); border: none; border-left: 0.5px solid rgba(232,228,220,0.2); padding: 0.85rem 1.4rem; font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--copper); cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 400; transition: background 0.2s; white-space: nowrap; }
-    .email-row button:hover { background: rgba(180,120,60,0.22); }
-
-    /* CONTACT */
-    .contact-inner { display: flex; flex-direction: column; gap: 1.5rem; }
-    .contact-inner h2 { font-size: clamp(1.8rem, 3vw, 2.8rem); font-weight: 300; line-height: 1.1; }
-    .contact-inner a { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--copper); text-decoration: none; border-bottom: 0.5px solid rgba(180,120,60,0.3); padding-bottom: 2px; align-self: flex-start; font-weight: 400; }
-    .footer-inner { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem; border-top: 0.5px solid var(--border); padding-top: 2rem; margin-top: 2rem; }
-    .footer-info { font-size: 10px; letter-spacing: 0.06em; color: rgba(232,228,220,0.40); line-height: 2; font-weight: 400; }
-    .footer-links { display: flex; gap: 1.5rem; }
-    .footer-links a { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(232,228,220,0.40); text-decoration: none; cursor: pointer; transition: color 0.2s; font-weight: 400; }
-    .footer-links a:hover { color: rgba(232,228,220,0.6); }
-
-    /* FIXED FOOTER BAR */
-    .fixed-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 2.5rem; background: var(--bg); border-top: 0.5px solid var(--border); pointer-events: none; }
-    .fixed-bar .tagline { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(232,228,220,0.55); font-weight: 400; }
-    .fixed-bar .bar-socials { display: flex; gap: 1.2rem; pointer-events: all; }
-    .fixed-bar .bar-socials a { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(232,228,220,0.40); text-decoration: none; cursor: pointer; transition: color 0.2s; font-weight: 400; }
-    .fixed-bar .bar-socials a:hover { color: var(--fg); }
-
-    /* CONTACT FORM */
-    .contact-form { margin-top: 3rem; border-top: 0.5px solid var(--border); padding-top: 3rem; max-width: 600px; }
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
-    .form-field { display: flex; flex-direction: column; gap: 0.5rem; }
-    .form-field.full { grid-column: span 2; }
-    .form-field label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(232,228,220,0.55); font-weight: 400; }
-    .form-field input, .form-field select, .form-field textarea { background: transparent; border: none; border-bottom: 0.5px solid rgba(232,228,220,0.2); outline: none; padding: 0.6rem 0; font-size: 13px; color: var(--fg); font-family: 'Inter', sans-serif; font-weight: 400; transition: border-color 0.2s; -webkit-appearance: none; appearance: none; border-radius: 0; }
-    .form-field input:focus, .form-field select:focus, .form-field textarea:focus { border-bottom-color: var(--copper); }
-    .form-field input::placeholder, .form-field textarea::placeholder { color: rgba(232,228,220,0.55); }
-    .form-field select { cursor: pointer; color: rgba(232,228,220,0.55); }
-    .form-field select option { background: #1a1a1a; color: var(--fg); }
-    .form-field textarea { resize: none; min-height: 100px; }
-    .form-submit { margin-top: 2rem; font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--bg); background: var(--copper); border: none; padding: 0.85rem 2rem; cursor: pointer; font-family: 'Inter', sans-serif; font-weight: 400; transition: opacity 0.2s; }
-    .form-submit:hover { opacity: 0.8; }
-    @media (max-width: 768px) {
-      .form-row { grid-template-columns: 1fr; }
-      .form-field.full { grid-column: span 1; }
-    }
-
-    /* NAV OVERLAY */
-    .nav-overlay { display: none !important; }
-
-    /* MOBILE */
-    @media (max-width: 768px) {
-      nav { padding: 1.5rem; align-items: center; }
-      .nav-links { display: none; }
-      .menu-toggle { display: flex; }
-      .nav-overlay { display: none !important; position: fixed; inset: 0; background: var(--bg); z-index: 100; flex-direction: column; justify-content: center; align-items: flex-end; padding: 3rem 2rem; text-align: right; pointer-events: all; }
-      .nav-overlay.open { display: flex !important; }
-      .nav-overlay a { font-size: 26px; font-weight: 300; font-family: 'Inter', sans-serif; padding: 0.35rem 0; letter-spacing: 0.02em; color: var(--fg); text-decoration: none; display: block; pointer-events: all; }
-      .nav-overlay a:hover { opacity: 0.4; }
-      .nav-overlay .nav-divider { margin: 1.2rem 0 1rem auto; }
-      .nav-overlay .nav-group { font-size: 9px; padding: 0 0 0.4rem; }
-      .nav-close { position: absolute; top: 1.8rem; right: 1.8rem; font-size: 8px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); cursor: pointer; pointer-events: all; font-family: 'Inter', sans-serif; font-weight: 300; }
-      .hero { padding: 1.5rem; margin-top: -5rem; min-height: 500px; }
-      .section { padding: 3rem 1.5rem; }
-      .intro h2 { font-size: clamp(1.8rem, 7vw, 2.4rem); }
-      .intro p { font-size: 13px; max-width: 100%; }
-      .releases-grid, .services-grid { grid-template-columns: 1fr; }
-      .release, .service { padding: 2rem 0; border-right: none; border-bottom: 0.5px solid var(--border); }
-      .release:last-child, .service:last-child { border-bottom: none; }
-      .release:not(:first-child), .service:not(:first-child) { padding-left: 0; }
-      .service:nth-child(even) { padding-left: 0; padding-right: 0; border-right: none; }
-      .process-grid { grid-template-columns: 1fr; }
-      .process-col { padding: 2rem 0; }
-      .process-col:first-child { padding-right: 0; border-right: none; border-bottom: 0.5px solid var(--border); }
-      .process-col:last-child { padding-left: 0; }
-      .about-grid { grid-template-columns: 1fr; }
-      .about-left { padding: 2rem 0; border-right: none; border-bottom: 0.5px solid var(--border); }
-      .about-right { padding: 2rem 0; }
-      .about-left h2 { font-size: clamp(1.4rem, 5vw, 1.8rem); }
-      .newsletter { flex-direction: column; align-items: flex-start; }
-      .email-row { min-width: 0; width: 100%; }
-      .contact-inner { flex-direction: column; align-items: flex-start; }
-      .fixed-bar { padding: 1rem 1.5rem; }
-      .fixed-bar .tagline { display: none; }
-    }
+    html, body { height: 100%; }
+    body { background: var(--bg); color: var(--fg); font-family: 'Inter', sans-serif; font-weight: 300; line-height: 1.6; }
+    canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; }
+    .page { position: relative; z-index: 1; min-height: 100svh; display: flex; flex-direction: column; padding: 0 var(--gutter); }
+    header { height: 64px; display: flex; align-items: center; }
+    .wordmark { font-size: 14px; font-weight: 400; letter-spacing: 0.02em; }
+    .wordmark span { color: var(--copper); }
+    main { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; padding: 4rem 0 3rem; }
+    .label { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--dim); font-weight: 400; margin-bottom: 1.75rem; }
+    .label b { color: var(--copper); font-weight: 400; }
+    h1 { font-size: clamp(2.6rem, 8.5vw, 7.5rem); font-weight: 300; line-height: 0.98; letter-spacing: -0.035em; max-width: 12ch; margin-bottom: 2rem; }
+    h1 em { font-style: normal; color: var(--copper); }
+    .lead { font-size: clamp(1.05rem, 1.6vw, 1.25rem); line-height: 1.6; color: var(--text); max-width: 38rem; margin-bottom: 2.5rem; }
+    .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+    .btn { display: inline-flex; align-items: center; font-size: 13px; font-weight: 400; text-decoration: none; padding: 0.7rem 1.25rem; border: 0.5px solid rgba(232,228,220,0.3); color: var(--fg); transition: background 0.2s; white-space: nowrap; }
+    .btn:hover { background: rgba(232,228,220,0.06); }
+    .btn.soft { color: var(--copper); background: var(--copper-soft); border-color: rgba(232,228,220,0.25); }
+    .btn.soft:hover { background: color-mix(in srgb, #b5502f 24%, transparent); }
+    footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1rem; padding: 1.25rem 0 2rem; border-top: 0.5px solid var(--border); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim); font-weight: 400; }
+    footer nav { display: flex; gap: 1.5rem; }
+    footer a { color: var(--dim); text-decoration: none; transition: color 0.2s; }
+    footer a:hover { color: var(--fg); }
   </style>
 </head>
 <body>
 
-<canvas id="c"></canvas>
+<canvas id="c" aria-hidden="true"></canvas>
 
-<div id="scroller">
-  <div class="page">
+<div class="page">
+  <header><span class="wordmark">Copper <span>Room</span></span></header>
 
+  <main>
+    <p class="label"><b>Coming soon</b></p>
+    <h1>A new site is <em>on the way</em></h1>
+    <p class="lead">Copper Room is the Porto studio of producer and engineer João Bonifácio. While the new site is being built, you can write to me directly or try Copperlight, my free tool for audio-reactive visuals.</p>
+    <div class="actions">
+      <a class="btn soft" href="mailto:hello@copperroom.studio">hello@copperroom.studio</a>
+      <a class="btn" href="copperlight/">Open Copperlight ↗</a>
+    </div>
+  </main>
+
+  <footer>
+    <span>Porto · Los Angeles</span>
     <nav>
-      <span class="wordmark" id="nav-home">Copper Room</span>
-      <div class="nav-links">
-        <a data-target="about">About</a>
-        <a href="copper-room-packs.html">Sound Packs</a>
-        <a data-target="services">Services</a>
-        <a href="copper-room-portfolio.html">Portfolio</a>
-        <a data-target="process">Process</a>
-        <a href="copper-room-studio.html">Studio</a>
-        <a data-target="newsletter">The List</a>
-        <a data-target="contact">Contact</a>
-        <div class="nav-divider"></div>
-        <span class="nav-group">Apps</span>
-        <a href="copperlight/">Copperlight</a>
-      </div>
-      <button class="menu-toggle" id="menuToggle" aria-label="Menu">
-        <span></span><span></span><span></span>
-      </button>
+      <a href="https://instagram.com/bonifaciothecreator" target="_blank" rel="noopener">Instagram ↗</a>
+      <a href="https://youtube.com/@bonifaciothecreator" target="_blank" rel="noopener">YouTube ↗</a>
     </nav>
-
-    <div class="hero" id="hero"></div>
-
-    <div class="section solid intro">
-      <h2>Sound built<br>from the room</h2>
-      <p>Analogue textures, spatial recordings, and carefully crafted synthesis. Sample packs and studio services for producers who work with tone.</p>
-    </div>
-
-    <div class="section transparent" id="about">
-      <p class="label">About</p>
-      <div class="about-grid">
-        <div class="about-left">
-          <h2>No formula<br>No template<br>Just the sound</h2>
-          <p>Copper Room is the studio project of João Bonifácio — electronic music artist, producer, and engineer. Based in Porto, working between Europe and Los Angeles. Built around an extensive hardware synthesizer collection and analogue outboard gear.</p>
-          <p>The approach is improvisational by nature. Where others reach for presets, Bonifácio reaches for the instrument. The result is sound that carries the texture of its making.</p>
-        </div>
-        <div class="about-right">
-          <p>Bonifácio started out touring as a roadie, then ran a commercial recording and mixing studio for ten years. As an artist he released the EPs <span class="highlight">Hanami</span> (2020) and <span class="highlight">Lockdown Tapes</span> (2022), took part in a masterclass with <span class="highlight">Brian Eno</span>, and performed at <span class="highlight">Paredes de Coura</span>, one of Portugal's major music festivals. With the <span class="highlight">Digitópia</span> project at <span class="highlight">Casa da Música</span> he has given three full shows and spoken as a guest on electronic music production, workflow and technical setups. He also teaches workshops on synthesis, from the fundamentals to modular systems.</p>
-          <p>Today the studio offers production, mixing, mastering and gear consulting, alongside a sample archive and the free tools he builds for his own live sets, starting with <a href="copperlight/" class="highlight">Copperlight</a>.</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="section solid" id="packs">
-      <p class="label">Sound Packs</p>
-      <div class="releases-grid">
-        <div class="release">
-          <p class="release-num">001</p>
-          <p class="release-title">Space Western</p>
-          <p class="release-sub">Moog Subsequent 37<br>Alesis Quadraverb</p>
-          <span class="release-tag available">Available</span>
-        </div>
-        <div class="release">
-          <p class="release-num">002</p>
-          <p class="release-title">Warm Static</p>
-          <p class="release-sub">Analogue synth textures<br>&amp; room recordings</p>
-          <span class="release-tag">Coming soon</span>
-        </div>
-        <div class="release">
-          <p class="release-num">003</p>
-          <p class="release-title">Tape Room</p>
-          <p class="release-sub">Lo-fi percussion<br>&amp; degraded pads</p>
-          <span class="release-tag">Coming soon</span>
-        </div>
-      </div>
-      <div style="margin-top: 2.5rem; border-top: 0.5px solid var(--border); padding-top: 2rem;">
-        <a class="copper-link" href="copper-room-packs.html">Browse all packs</a>
-      </div>
-    </div>
-
-    <div class="section transparent" id="services">
-      <p class="label">Services</p>
-      <div class="services-grid">
-        <div class="service">
-          <p class="service-num">01</p>
-          <p class="service-title">Production</p>
-          <p class="service-desc">From initial concept to finished arrangement. An improvisational, hardware-first approach — building tracks that feel alive rather than assembled.</p>
-        </div>
-        <div class="service">
-          <p class="service-num">02</p>
-          <p class="service-title">Mixing</p>
-          <p class="service-desc">Analogue and hybrid mixing through outboard gear. Every mix is shaped by ear, not by template — clarity, depth, and character in equal measure.</p>
-        </div>
-        <div class="service">
-          <p class="service-num">03</p>
-          <p class="service-title">Mastering</p>
-          <p class="service-desc">Final polish through a carefully crafted chain. Balanced for all listening environments without losing the texture that makes the record worth hearing.</p>
-        </div>
-        <div class="service">
-          <p class="service-num">04</p>
-          <p class="service-title">Consulting</p>
-          <p class="service-desc">Studio recording workflows, synthesizer selection, and Eurorack system design. For artists and producers building or refining their setup.</p>
-        </div>
-        <div class="service">
-          <p class="service-num">05</p>
-          <p class="service-title">Music for Film</p>
-          <p class="service-desc">Original scores and sound design for film, video, and moving image. Analogue textures and electronic composition tailored to picture.</p>
-        </div>
-        <div class="service">
-          <p class="service-num">06</p>
-          <p class="service-title">Sound Design</p>
-          <p class="service-desc">Custom sonic identities, textures, and effects for brands, installations, games, and moving image. Built from hardware — no presets, no shortcuts.</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="section solid" id="process">
-      <p class="label">Process</p>
-      <p style="font-size:13px;color:rgba(232,228,220,0.55);font-weight:400;letter-spacing:0.08em;margin-bottom:3rem;font-style:italic;">Every signal that leaves here has passed through copper.</p>
-      <div class="process-grid">
-        <div class="process-col">
-          <h3>Made with<br>hardware</h3>
-          <p>Every Copper Room pack is recorded through analogue signal chains. No emulation. The imperfections are intentional — they are the sound.</p>
-          <a class="copper-link">Read more</a>
-        </div>
-        <div class="process-col">
-          <h3>Free samples,<br>every month</h3>
-          <p>Subscribers receive a curated sample file with each newsletter — one-shots, loops, and textures from the sessions behind each pack.</p>
-          <a class="copper-link" data-target="newsletter">Join the list</a>
-        </div>
-      </div>
-    </div>
-
-    <div class="section transparent newsletter" id="newsletter">
-      <div>
-        <h3>Join the list</h3>
-        <p>A free sample file with every issue. Recordings from the studio, notes on the process, and occasional thoughts on analogue sound. No schedule, no filler — just signal.</p>
-      </div>
-      <form id="bd-form" action="https://5be2ff2c.sibforms.com/serve/MUIFAPYCa2Jq5SgdNRzi57_lMHj5da7xY0XewkCRL9cxyhRDZmIQOPo0FMUdDIOACqzkiay8u1pmOxYHQo48WP_ZJ0vWoFEGiOhlGmZJisLnOIHq6jxNNmJ9ILMprJuKeolSrV8NEMpn7GT8h-mqJGJwNrpxFb0CRvw8I4rzcoqY3p5KDmghr-aJt9a4VVLKvKjN4_jGtomBqcybMg==" method="POST" target="brevo-iframe">
-        <input type="hidden" name="locale" value="en">
-        <input type="text" name="email_address_check" value="" style="display:none;">
-        <div class="email-row">
-          <input type="email" name="EMAIL" placeholder="your@email.com" required>
-          <button type="submit">Subscribe</button>
-        </div>
-      </form>
-      <iframe name="brevo-iframe" style="display:none;" aria-hidden="true"></iframe>
-      <div id="newsletter-success" style="display:none;">
-        <p style="font-size:13px;color:rgba(232,228,220,0.55);font-weight:400;line-height:1.9;">Check your inbox to confirm your subscription.</p>
-      </div>
-    </div>
-
-    <div class="section solid" id="contact">
-      <p class="label">Contact</p>
-      <div class="contact-inner">
-        <h2>Let's make<br>something awesome</h2>
-        <form class="contact-form" id="contact-form" action="https://formspree.io/f/mzdwnyyk" method="POST">
-          <div class="form-row">
-            <div class="form-field">
-              <label for="name">Name</label>
-              <input type="text" id="name" name="name" placeholder="Your name" required>
-            </div>
-            <div class="form-field">
-              <label for="email">Email</label>
-              <input type="email" id="email" name="email" placeholder="your@email.com" required>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-field">
-              <label for="subject">Subject</label>
-              <input type="text" id="subject" name="subject" placeholder="What's this about?" required>
-            </div>
-            <div class="form-field">
-              <label for="service">Service</label>
-              <select id="service" name="service" required>
-                <option value="" disabled selected>Select a service</option>
-                <option value="production">Production</option>
-                <option value="mixing">Mixing</option>
-                <option value="mastering">Mastering</option>
-                <option value="consulting">Consulting</option>
-                <option value="music-for-film">Music for Film</option>
-                <option value="sound-design">Sound Design</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="form-field full">
-              <label for="message">Message</label>
-              <textarea id="message" name="message" placeholder="Tell me about your project..." required></textarea>
-            </div>
-          </div>
-          <button type="submit" class="form-submit">Send message</button>
-          <p id="contact-error" role="alert" style="display:none; margin-top:1.5rem; font-size:13px; color:rgba(232,228,220,0.55); font-weight:400; line-height:1.9;">Something went wrong and your message wasn't sent. Please try again, or email <a href="mailto:hello@copperroom.studio" style="color:var(--copper);">hello@copperroom.studio</a>.</p>
-        </form>
-        <div id="contact-success" style="display:none; padding: 2rem 0;">
-          <p style="font-size:13px;color:rgba(232,228,220,0.55);font-weight:400;line-height:1.9;">Message sent — I'll be in touch shortly.</p>
-        </div>
-      </div>
-      <div class="footer-inner">
-        <div class="footer-info">Copper Room - All rights reserved 2026<br>Porto, Portugal / Los Angeles, California</div>
-        <div class="footer-links">
-          <a href="https://instagram.com/bonifaciothecreator" target="_blank">Instagram</a>
-          <a href="https://youtube.com/@bonifaciothecreator" target="_blank">YouTube</a>
-          <a href="copper-room-privacy.html">Privacy</a>
-        </div>
-      </div>
-    </div>
-
-  </div>
-</div>
-
-<div class="nav-overlay" id="navOverlay">
-  <span class="nav-close" id="navClose">Close</span>
-  <a data-target="about">About</a>
-  <a href="copper-room-packs.html">Sound Packs</a>
-  <a data-target="services">Services</a>
-  <a href="copper-room-portfolio.html">Portfolio</a>
-  <a data-target="process">Process</a>
-  <a href="copper-room-studio.html">Studio</a>
-  <a data-target="newsletter">The List</a>
-  <a data-target="contact">Contact</a>
-  <div class="nav-divider"></div>
-  <span class="nav-group">Apps</span>
-  <a href="copperlight/">Copperlight</a>
-</div>
-
-<div class="fixed-bar">
-  <span class="tagline">Analogue sound design</span>
-  <div class="bar-socials">
-    <a href="https://instagram.com/bonifaciothecreator" target="_blank">Instagram</a>
-    <a href="https://youtube.com/@bonifaciothecreator" target="_blank">YouTube</a>
-  </div>
+  </footer>
 </div>
 
 <script>
-  const scroller = document.getElementById('scroller');
-  const menuToggle = document.getElementById('menuToggle');
-  const navOverlay = document.getElementById('navOverlay');
-
-  navOverlay.classList.remove('open');
-  menuToggle.classList.remove('open');
-
-  function closeMenu() {
-    menuToggle.classList.remove('open');
-    navOverlay.classList.remove('open');
-  }
-
-  window.addEventListener('unload', () => {});
-  window.addEventListener('pageshow', (e) => {
-    navOverlay.classList.remove('open');
-    menuToggle.classList.remove('open');
-  });
-
-  menuToggle.addEventListener('click', () => { menuToggle.classList.toggle('open'); navOverlay.classList.toggle('open'); });
-  menuToggle.addEventListener('touchend', (e) => { e.preventDefault(); menuToggle.classList.toggle('open'); navOverlay.classList.toggle('open'); });
-
-  const navClose = document.getElementById('navClose');
-  navClose.addEventListener('click', closeMenu);
-  navClose.addEventListener('touchend', (e) => { e.preventDefault(); closeMenu(); });
-
-  document.getElementById('nav-home').addEventListener('click', () => {
-    scroller.scrollTo({ top: 0, behavior: 'smooth' });
-  });
-
-  document.querySelectorAll('[data-target]').forEach(el => {
-    const handler = () => {
-      const target = document.getElementById(el.dataset.target);
-      if (target) { scroller.scrollTo({ top: target.offsetTop, behavior: 'smooth' }); closeMenu(); }
-    };
-    el.addEventListener('click', handler);
-    el.addEventListener('touchend', (e) => { e.preventDefault(); handler(); });
-  });
-
-  const sections = ['about', 'packs', 'services', 'process', 'newsletter', 'contact'];
-  const links = document.querySelectorAll('[data-target]');
-
-  scroller.addEventListener('scroll', () => {
-    const scrollY = scroller.scrollTop + window.innerHeight * 0.3;
-    let current = '';
-    sections.forEach(id => {
-      const el = document.getElementById(id);
-      if (el && el.offsetTop <= scrollY) current = id;
-    });
-    links.forEach(a => a.classList.toggle('active', a.dataset.target === current));
-  });
-
+  // Same line figure as the new homepage, centred, paused when the tab is hidden
   const canvas = document.getElementById('c');
   const ctx = canvas.getContext('2d');
-  const a = 3, b = 2;
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let elapsed = 0, last = null;
-  function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-  function draw(ts) {
+  function resize() {
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = innerWidth * dpr; canvas.height = innerHeight * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (still) draw(performance.now(), true);
+  }
+  function figure(W, H, d, color) {
+    const cx = W * 0.5, cy = H * 0.5, R = Math.min(W, H) * 0.40, steps = 600;
+    ctx.beginPath();
+    for (let s = 0; s <= steps; s++) {
+      const t = (s / steps) * Math.PI * 2;
+      const x = cx + R * Math.sin(3 * t + d), y = cy + R * Math.sin(2 * t);
+      s ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.closePath(); ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.stroke();
+  }
+  function draw(ts, once) {
     if (last === null) last = ts;
     elapsed += ts - last; last = ts;
-    const W = canvas.width, H = canvas.height;
-    const cx = W * 0.5, cy = H * 0.5;
-    const R = Math.min(W, H) * 0.42;
-    const steps = 600;
-    const d = Math.sin(elapsed * 0.00016) * Math.PI;
-    ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, W, H);
-    ctx.beginPath();
-    for (let s = 0; s <= steps; s++) {
-      const angle = (s / steps) * Math.PI * 2;
-      const x = cx + R * Math.sin(a * angle + d + 0.3);
-      const y = cy + R * Math.sin(b * angle);
-      s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.strokeStyle = 'rgba(232,228,220,0.05)'; ctx.lineWidth = 1; ctx.stroke();
-    ctx.beginPath();
-    for (let s = 0; s <= steps; s++) {
-      const angle = (s / steps) * Math.PI * 2;
-      const x = cx + R * Math.sin(a * angle + d);
-      const y = cy + R * Math.sin(b * angle);
-      s === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.strokeStyle = 'rgba(180,120,60,0.35)'; ctx.lineWidth = 1; ctx.stroke();
-    requestAnimationFrame(draw);
+    const W = innerWidth, H = innerHeight, d = Math.sin(elapsed * 0.00016) * Math.PI;
+    ctx.clearRect(0, 0, W, H);
+    figure(W, H, d + 0.3, 'rgba(232,228,220,0.05)');
+    ctx.globalAlpha = 0.45; figure(W, H, d, '#b5502f'); ctx.globalAlpha = 1;
+    if (!once) requestAnimationFrame(draw);
   }
-  resize(); window.addEventListener('resize', resize); requestAnimationFrame(draw);
-
-  // Newsletter form
-  const bdForm = document.getElementById('bd-form');
-  if (bdForm) {
-    bdForm.addEventListener('submit', () => {
-      setTimeout(() => {
-        bdForm.style.display = 'none';
-        document.getElementById('newsletter-success').style.display = 'block';
-      }, 500);
-    });
-  }
-
-  // Contact form
-  const contactForm = document.getElementById('contact-form');
-  if (contactForm) {
-    contactForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const data = new FormData(contactForm);
-      const contactError = document.getElementById('contact-error');
-      contactError.style.display = 'none';
-      try {
-        const response = await fetch(contactForm.action, {
-          method: 'POST',
-          body: data,
-          headers: { 'Accept': 'application/json' }
-        });
-        if (response.ok) {
-          contactForm.style.display = 'none';
-          document.getElementById('contact-success').style.display = 'block';
-        } else {
-          contactError.style.display = 'block';
-        }
-      } catch (err) {
-        console.error(err);
-        contactError.style.display = 'block';
-      }
-    });
-  }
+  addEventListener('resize', resize); resize();
+  if (!still) requestAnimationFrame(draw);
 </script>
-
 </body>
 </html>
