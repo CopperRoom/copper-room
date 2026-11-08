@@ -28,15 +28,17 @@ const revealer = new IntersectionObserver(entries => entries.forEach(e => {
 }), { rootMargin: '0px 0px -8% 0px' });
 revealEls.forEach(el => revealer.observe(el));
 
-// ---------- Phone menu ----------
+// ---------- Phone menu (skipped on pages that only show the wordmark) ----------
 const toggle = document.getElementById('menuToggle');
-const setMenu = open => {
-  document.body.classList.toggle('menu-open', open);
-  toggle.setAttribute('aria-expanded', open);
-  toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
-};
-toggle.addEventListener('click', () => setMenu(!document.body.classList.contains('menu-open')));
-document.querySelectorAll('#menu a').forEach(a => a.addEventListener('click', () => setMenu(false)));
+if (toggle) {
+  const setMenu = open => {
+    document.body.classList.toggle('menu-open', open);
+    toggle.setAttribute('aria-expanded', open);
+    toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+  };
+  toggle.addEventListener('click', () => setMenu(!document.body.classList.contains('menu-open')));
+  document.querySelectorAll('#menu a').forEach(a => a.addEventListener('click', () => setMenu(false)));
+}
 
 // ---------- Homepage: highlight the menu item for the section on screen ----------
 // (Sub-pages mark their own menu item with class="active" in the HTML.)
